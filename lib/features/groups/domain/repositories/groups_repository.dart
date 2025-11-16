@@ -9,6 +9,9 @@ abstract class GroupsRepository {
   Future<Result<void>> deleteGroup(String groupId);
   Future<Result<void>> inviteUserToGroup(String groupId, String userEmail);
   Future<Result<void>> removeUserFromGroup(String groupId, String userId);
+  Future<Result<String>> generateInviteCode(String groupId);
+  Future<Result<Group>> getGroupByInviteCode(String inviteCode);
+  Future<Result<void>> joinGroupByCode(String inviteCode, String userId);
 }
 
 

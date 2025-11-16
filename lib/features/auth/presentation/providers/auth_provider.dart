@@ -4,6 +4,7 @@ import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
+import '../../domain/usecases/update_profile_usecase.dart';
 import '../../../../core/di/providers.dart';
 
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
@@ -26,18 +27,25 @@ final getCurrentUserUseCaseProvider = Provider<GetCurrentUserUseCase>((ref) {
   return GetCurrentUserUseCase(repository);
 });
 
+final updateProfileUseCaseProvider = Provider<UpdateProfileUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return UpdateProfileUseCase(repository);
+});
+
 final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
   final getCurrentUserUseCase = ref.watch(getCurrentUserUseCaseProvider);
   final logoutUseCase = ref.watch(logoutUseCaseProvider);
-  return AuthNotifier(getCurrentUserUseCase, logoutUseCase);
+  final updateProfileUseCase = ref.watch(updateProfileUseCaseProvider);
+  return AuthNotifier(getCurrentUserUseCase, logoutUseCase, updateProfileUseCase);
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final GetCurrentUserUseCase getCurrentUserUseCase;
   final LogoutUseCase logoutUseCase;
+  final UpdateProfileUseCase updateProfileUseCase;
   bool _isSettingUser = false;
 
-  AuthNotifier(this.getCurrentUserUseCase, this.logoutUseCase)
+  AuthNotifier(this.getCurrentUserUseCase, this.logoutUseCase, this.updateProfileUseCase)
       : super(const AsyncValue.loading()) {
     checkAuth();
   }
@@ -77,6 +85,22 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       },
       error: (failure) {
         // Mantener estado actual
+      },
+    );
+  }
+
+  Future<void> updateProfile(String userId, String name, String? avatarUrl) async {
+    final result = await updateProfileUseCase(
+      userId: userId,
+      name: name,
+      avatarUrl: avatarUrl,
+    );
+    result.when(
+      success: (user) {
+        setUser(user);
+      },
+      error: (failure) {
+        // Mantener estado actual, el error se manejará en la UI
       },
     );
   }

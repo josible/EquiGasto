@@ -11,6 +11,7 @@ class RouteNames {
   static const String settings = '/settings';
   static const String profile = '/profile';
   static const String notifications = '/notifications';
+  static const String joinGroup = '/join/:code';
 }
 
 

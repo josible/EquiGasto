@@ -156,8 +156,35 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   @override
   Future<Result<void>> settleDebt(String fromUserId, String toUserId, String groupId, double amount) async {
     try {
-      // Mock: En producción esto actualizaría el estado de las deudas
-      await Future.delayed(const Duration(milliseconds: 300));
+      if (amount <= 0) {
+        return const Error(ValidationFailure('El monto debe ser mayor a 0'));
+      }
+
+      // Crear un gasto compensatorio que representa el pago de la deuda
+      // El deudor (fromUserId) paga al acreedor (toUserId)
+      final settlementExpense = Expense(
+        id: const Uuid().v4(),
+        groupId: groupId,
+        paidBy: fromUserId, // El deudor paga
+        description: 'Liquidación de deuda',
+        amount: amount,
+        date: DateTime.now(),
+        splitAmounts: {
+          toUserId: amount, // Solo el acreedor recibe el dinero
+        },
+        createdAt: DateTime.now(),
+      );
+
+      // Guardar el gasto compensatorio en Firestore
+      await remoteDataSource.createExpense(settlementExpense);
+      
+      // Guardar en cache local (opcional)
+      try {
+        await localDataSource.saveExpense(settlementExpense);
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+      
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al liquidar deuda: $e'));

@@ -209,7 +209,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<void>> updateProfile(String userId, String name, String? avatarUrl) async {
+  Future<Result<User>> updateProfile(String userId, String name, String? avatarUrl) async {
     try {
       final firebaseUser = remoteDataSource.getCurrentFirebaseUser();
       if (firebaseUser == null || firebaseUser.uid != userId) {
@@ -245,7 +245,7 @@ class AuthRepositoryImpl implements AuthRepository {
       // Actualizar cache local
       await localDataSource.saveUser(updatedUser);
       
-      return const Success(null);
+      return Success(updatedUser);
     } catch (e) {
       return Error(AuthFailure('Error al actualizar perfil: $e'));
     }

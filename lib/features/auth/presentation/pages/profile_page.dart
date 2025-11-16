@@ -4,16 +4,97 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/constants/route_names.dart';
 import '../providers/auth_provider.dart';
 
-class ProfilePage extends ConsumerWidget {
+class ProfilePage extends ConsumerStatefulWidget {
   const ProfilePage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends ConsumerState<ProfilePage> {
+  final _nameController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+  bool _isEditing = false;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSave() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final authState = ref.read(authStateProvider);
+    final user = authState.value;
+    if (user == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await ref.read(authStateProvider.notifier).updateProfile(
+        user.id,
+        _nameController.text.trim(),
+        null,
+      );
+
+      if (mounted) {
+        setState(() {
+          _isEditing = false;
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Nombre actualizado exitosamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al actualizar nombre: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Perfil'),
+        actions: [
+          if (_isEditing)
+            IconButton(
+              icon: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.check),
+              onPressed: _isLoading ? null : _handleSave,
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () {
+                final user = authState.value;
+                if (user != null) {
+                  _nameController.text = user.name;
+                  setState(() => _isEditing = true);
+                }
+              },
+            ),
+        ],
       ),
       body: authState.when(
         data: (user) {
@@ -35,11 +116,50 @@ class ProfilePage extends ConsumerWidget {
               ),
               const SizedBox(height: 24),
               Card(
-                child: ListTile(
-                  leading: const Icon(Icons.person),
-                  title: const Text('Nombre'),
-                  subtitle: Text(user.name),
-                ),
+                child: _isEditing
+                    ? Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Form(
+                          key: _formKey,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'Nombre',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              TextFormField(
+                                controller: _nameController,
+                                enabled: !_isLoading,
+                                decoration: const InputDecoration(
+                                  hintText: 'Ingrese su nombre',
+                                  border: OutlineInputBorder(),
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'El nombre es requerido';
+                                  }
+                                  return null;
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    : ListTile(
+                        leading: const Icon(Icons.person),
+                        title: const Text('Nombre'),
+                        subtitle: Text(user.name),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          _nameController.text = user.name;
+                          setState(() => _isEditing = true);
+                        },
+                      ),
               ),
               const SizedBox(height: 8),
               Card(

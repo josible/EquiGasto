@@ -226,6 +226,54 @@ class GroupsRepositoryImpl implements GroupsRepository {
       return Error(ServerFailure('Error al remover usuario: $e'));
     }
   }
+
+  @override
+  Future<Result<String>> generateInviteCode(String groupId) async {
+    try {
+      final code = await remoteDataSource.generateInviteCode(groupId);
+      return Success(code);
+    } catch (e) {
+      return Error(ServerFailure('Error al generar código de invitación: $e'));
+    }
+  }
+
+  @override
+  Future<Result<Group>> getGroupByInviteCode(String inviteCode) async {
+    try {
+      final groupId = await remoteDataSource.getGroupIdByInviteCode(inviteCode);
+      if (groupId == null) {
+        return const Error(ValidationFailure('Código de invitación inválido'));
+      }
+
+      final groupResult = await getGroupById(groupId);
+      return groupResult;
+    } catch (e) {
+      return Error(ServerFailure('Error al obtener grupo por código: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> joinGroupByCode(String inviteCode, String userId) async {
+    try {
+      final groupId = await remoteDataSource.getGroupIdByInviteCode(inviteCode);
+      if (groupId == null) {
+        return const Error(ValidationFailure('Código de invitación inválido'));
+      }
+
+      await remoteDataSource.joinGroupByCode(groupId, userId);
+      
+      // Invalidar cache local
+      try {
+        await localDataSource.deleteGroup(groupId);
+      } catch (e) {
+        // No crítico
+      }
+      
+      return const Success(null);
+    } catch (e) {
+      return Error(ServerFailure('Error al unirse al grupo: $e'));
+    }
+  }
 }
 
 

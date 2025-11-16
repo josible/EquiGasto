@@ -4,6 +4,7 @@ import '../../domain/entities/expense.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/usecases/add_expense_usecase.dart';
 import '../../domain/usecases/get_group_debts_usecase.dart';
+import '../../domain/usecases/settle_debt_usecase.dart';
 import '../../../../core/di/providers.dart';
 import '../../domain/repositories/expenses_repository.dart';
 
@@ -15,6 +16,11 @@ final addExpenseUseCaseProvider = Provider<AddExpenseUseCase>((ref) {
 final getGroupDebtsUseCaseProvider = Provider<GetGroupDebtsUseCase>((ref) {
   final repository = ref.watch(expensesRepositoryProvider);
   return GetGroupDebtsUseCase(repository);
+});
+
+final settleDebtUseCaseProvider = Provider<SettleDebtUseCase>((ref) {
+  final repository = ref.watch(expensesRepositoryProvider);
+  return SettleDebtUseCase(repository);
 });
 
 final groupExpensesProvider = FutureProvider.family<List<Expense>, String>((ref, groupId) async {

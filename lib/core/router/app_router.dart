@@ -5,6 +5,7 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/groups/presentation/pages/groups_list_page.dart';
 import '../../features/groups/presentation/pages/group_detail_page.dart';
+import '../../features/groups/presentation/pages/join_group_page.dart';
 import '../../features/expenses/presentation/pages/add_expense_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/auth/presentation/pages/profile_page.dart';
@@ -65,6 +66,14 @@ class AppRouter {
         path: RouteNames.notifications,
         name: 'notifications',
         builder: (context, state) => const NotificationsPage(),
+      ),
+      GoRoute(
+        path: RouteNames.joinGroup,
+        name: 'join-group',
+        builder: (context, state) {
+          final code = state.pathParameters['code']!;
+          return JoinGroupPage(code: code);
+        },
       ),
     ],
   );

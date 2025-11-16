@@ -18,6 +18,7 @@ import '../../features/expenses/domain/repositories/expenses_repository.dart';
 import '../../features/notifications/data/datasources/notifications_local_datasource.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
+import 'null_datasources.dart' as null_ds;
 
 // Firebase
 final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
@@ -38,8 +39,8 @@ final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((ref) {
   final prefsAsync = ref.watch(sharedPreferencesProvider);
   return prefsAsync.when(
     data: (prefs) => AuthLocalDataSourceImpl(prefs),
-    loading: () => throw Exception('SharedPreferences está cargando'),
-    error: (error, stack) => throw Exception('Error al cargar SharedPreferences: $error'),
+    loading: () => null_ds.NullAuthLocalDataSource(),
+    error: (error, stack) => null_ds.NullAuthLocalDataSource(),
   );
 });
 
@@ -57,8 +58,8 @@ final groupsLocalDataSourceProvider = Provider<GroupsLocalDataSource>((ref) {
   final prefsAsync = ref.watch(sharedPreferencesProvider);
   return prefsAsync.when(
     data: (prefs) => GroupsLocalDataSourceImpl(prefs),
-    loading: () => throw Exception('SharedPreferences está cargando'),
-    error: (error, stack) => throw Exception('Error al cargar SharedPreferences: $error'),
+    loading: () => null_ds.NullGroupsLocalDataSource(),
+    error: (error, stack) => null_ds.NullGroupsLocalDataSource(),
   );
 });
 
@@ -66,8 +67,8 @@ final expensesLocalDataSourceProvider = Provider<ExpensesLocalDataSource>((ref) 
   final prefsAsync = ref.watch(sharedPreferencesProvider);
   return prefsAsync.when(
     data: (prefs) => ExpensesLocalDataSourceImpl(prefs),
-    loading: () => throw Exception('SharedPreferences está cargando'),
-    error: (error, stack) => throw Exception('Error al cargar SharedPreferences: $error'),
+    loading: () => null_ds.NullExpensesLocalDataSource(),
+    error: (error, stack) => null_ds.NullExpensesLocalDataSource(),
   );
 });
 
@@ -75,8 +76,8 @@ final notificationsLocalDataSourceProvider = Provider<NotificationsLocalDataSour
   final prefsAsync = ref.watch(sharedPreferencesProvider);
   return prefsAsync.when(
     data: (prefs) => NotificationsLocalDataSourceImpl(prefs),
-    loading: () => throw Exception('SharedPreferences está cargando'),
-    error: (error, stack) => throw Exception('Error al cargar SharedPreferences: $error'),
+    loading: () => null_ds.NullNotificationsLocalDataSource(),
+    error: (error, stack) => null_ds.NullNotificationsLocalDataSource(),
   );
 });
 

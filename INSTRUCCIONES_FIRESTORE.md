@@ -33,9 +33,9 @@ service cloud.firestore {
     
     // Reglas para grupos
     match /groups/{groupId} {
-      // Solo se puede leer si el usuario es miembro del grupo
-      allow read: if request.auth != null && 
-                     request.auth.uid in resource.data.memberIds;
+      // Se puede leer si el usuario está autenticado (para ver información de invitación)
+      // La aplicación verificará la membresía antes de permitir acciones
+      allow read: if request.auth != null;
       
       // Solo se puede crear si el usuario está autenticado y es el creador
       allow create: if request.auth != null &&
@@ -83,6 +83,21 @@ service cloud.firestore {
       // Solo se puede eliminar si el usuario es el destinatario
       allow delete: if request.auth != null &&
                        request.auth.uid == resource.data.userId;
+    }
+    
+    // Reglas para códigos de invitación de grupos
+    match /group_invites/{inviteCode} {
+      // Cualquier usuario autenticado puede leer códigos de invitación (para validar y unirse)
+      allow read: if request.auth != null;
+      
+      // Solo se puede crear si el usuario está autenticado
+      allow create: if request.auth != null;
+      
+      // No se permite actualizar códigos de invitación
+      allow update: if false;
+      
+      // No se permite eliminar códigos de invitación
+      allow delete: if false;
     }
   }
 }
