@@ -25,3 +25,4 @@ La aplicación está construida siguiendo **Clean Architecture** con las siguien
 - GoRouter para navegación
 - Clean Architecture
 
+

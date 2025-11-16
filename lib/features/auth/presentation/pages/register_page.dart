@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/route_names.dart';
 import '../providers/auth_provider.dart';
-import '../../domain/usecases/register_usecase.dart';
-import '../../../../core/di/providers.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});
@@ -33,32 +31,55 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
 
+    if (!mounted) return;
+
     setState(() => _isLoading = true);
 
-    final registerUseCase = ref.read(registerUseCaseProvider);
-    final result = await registerUseCase(
-      _emailController.text.trim(),
-      _passwordController.text,
-      _nameController.text.trim(),
-    );
+    try {
+      final registerUseCase = ref.read(registerUseCaseProvider);
+      final result = await registerUseCase(
+        _emailController.text.trim(),
+        _passwordController.text,
+        _nameController.text.trim(),
+      );
 
-    setState(() => _isLoading = false);
+      if (!mounted) return;
 
-    result.when(
-      success: (user) {
-        ref.read(authStateProvider.notifier).checkAuth();
-        if (mounted) {
-          context.go(RouteNames.home);
-        }
-      },
-      error: (failure) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.message)),
-          );
-        }
-      },
-    );
+      setState(() => _isLoading = false);
+
+      result.when(
+        success: (user) {
+          // Establecer el usuario directamente sin pasar por loading
+          ref.read(authStateProvider.notifier).setUser(user);
+          if (mounted) {
+            context.go(RouteNames.home);
+          }
+        },
+        error: (failure) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error inesperado: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -101,8 +122,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     if (value == null || value.isEmpty) {
                       return 'Ingrese su email';
                     }
-                    if (!value.contains('@')) {
-                      return 'Email inválido';
+                    // Validación más estricta de email
+                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!emailRegex.hasMatch(value)) {
+                      return 'Ingrese un email válido';
                     }
                     return null;
                   },

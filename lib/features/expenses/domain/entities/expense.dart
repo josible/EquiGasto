@@ -34,3 +34,4 @@ class Expense extends Equatable {
       ];
 }
 
+

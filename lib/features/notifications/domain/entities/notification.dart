@@ -40,3 +40,4 @@ class AppNotification extends Equatable {
       ];
 }
 
+

@@ -17,3 +17,4 @@ class Debt extends Equatable {
   List<Object?> get props => [fromUserId, toUserId, groupId, amount];
 }
 
+

@@ -29,7 +29,14 @@ class _CreateGroupDialogState extends ConsumerState<CreateGroupDialog> {
     final authState = ref.read(authStateProvider);
     final user = authState.value;
 
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Debes estar autenticado para crear un grupo')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isLoading = true);
 
@@ -37,7 +44,7 @@ class _CreateGroupDialogState extends ConsumerState<CreateGroupDialog> {
     final result = await createGroupUseCase(
       _nameController.text.trim(),
       _descriptionController.text.trim(),
-      user.id,
+      user.id, // Este ID debe coincidir con request.auth.uid
     );
 
     setState(() => _isLoading = false);
@@ -114,4 +121,6 @@ class _CreateGroupDialogState extends ConsumerState<CreateGroupDialog> {
     );
   }
 }
+
+
 

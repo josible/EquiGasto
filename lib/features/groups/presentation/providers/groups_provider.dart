@@ -4,6 +4,7 @@ import '../../domain/entities/group.dart';
 import '../../domain/usecases/get_user_groups_usecase.dart';
 import '../../domain/usecases/create_group_usecase.dart';
 import '../../domain/usecases/delete_group_usecase.dart';
+import '../../domain/usecases/invite_user_to_group_usecase.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -22,6 +23,11 @@ final deleteGroupUseCaseProvider = Provider<DeleteGroupUseCase>((ref) {
   return DeleteGroupUseCase(repository);
 });
 
+final inviteUserToGroupUseCaseProvider = Provider<InviteUserToGroupUseCase>((ref) {
+  final repository = ref.watch(groupsRepositoryProvider);
+  return InviteUserToGroupUseCase(repository);
+});
+
 final groupsListProvider = FutureProvider<List<Group>>((ref) async {
   final authState = ref.watch(authStateProvider);
   final user = authState.value;
@@ -36,6 +42,16 @@ final groupsListProvider = FutureProvider<List<Group>>((ref) async {
   return result.when(
     success: (groups) => groups,
     error: (_) => [],
+  );
+});
+
+final groupProvider = FutureProvider.family<Group, String>((ref, groupId) async {
+  final repository = ref.watch(groupsRepositoryProvider);
+  final result = await repository.getGroupById(groupId);
+  
+  return result.when(
+    success: (group) => group,
+    error: (failure) => throw Exception(failure.message),
   );
 });
 

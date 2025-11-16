@@ -15,6 +15,8 @@ abstract class ExpensesRepository {
   Future<Result<void>> deleteExpense(String expenseId);
   Future<Result<List<Debt>>> getGroupDebts(String groupId);
   Future<Result<List<Debt>>> getUserDebts(String userId);
+  Future<Result<double>> getUserBalanceInGroup(String userId, String groupId);
   Future<Result<void>> settleDebt(String fromUserId, String toUserId, String groupId, double amount);
 }
+
 

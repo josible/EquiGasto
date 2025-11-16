@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../domain/repositories/expenses_repository.dart';
 import '../../../../core/di/providers.dart';
 import '../providers/expenses_provider.dart';
-import '../../../groups/domain/repositories/groups_repository.dart';
+import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../groups/presentation/providers/group_members_provider.dart';
+import '../../../groups/presentation/providers/group_balance_provider.dart';
+import '../../../auth/domain/entities/user.dart';
 
 class AddExpensePage extends ConsumerStatefulWidget {
   final String groupId;
@@ -89,63 +93,114 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
 
     setState(() => _isLoading = true);
 
-    final amount = double.tryParse(_amountController.text) ?? 0.0;
-    final splitAmount = amount / selectedCount;
+    try {
+      // Normalizar el valor: reemplazar coma por punto para parsear
+      final normalizedAmount = _amountController.text.replaceAll(',', '.');
+      final amount = double.tryParse(normalizedAmount) ?? 0.0;
+      final splitAmount = amount / selectedCount;
 
-    final splitAmounts = <String, double>{};
-    for (final entry in _selectedMembers.entries) {
-      if (entry.value) {
-        splitAmounts[entry.key] = splitAmount;
+      final splitAmounts = <String, double>{};
+      for (final entry in _selectedMembers.entries) {
+        if (entry.value) {
+          splitAmounts[entry.key] = splitAmount;
+        }
+      }
+
+      final addExpenseUseCase = ref.read(addExpenseUseCaseProvider);
+      final result = await addExpenseUseCase(
+        groupId: widget.groupId,
+        paidBy: _selectedPaidBy!,
+        description: _descriptionController.text.trim(),
+        amount: amount,
+        date: _selectedDate,
+        splitAmounts: splitAmounts,
+      );
+
+      setState(() => _isLoading = false);
+
+      if (!mounted) return;
+
+      result.when(
+        success: (_) {
+          // Invalidar providers para refrescar la lista de gastos, deudas y balances
+          ref.invalidate(groupExpensesProvider(widget.groupId));
+          ref.invalidate(groupDebtsProvider(widget.groupId));
+          ref.invalidate(groupBalanceProvider(widget.groupId));
+          // También invalidar la lista de grupos para actualizar los balances
+          ref.invalidate(groupsListProvider);
+          
+          if (mounted) {
+            context.pop();
+            // Esperar un momento antes de mostrar el mensaje para dar tiempo a refrescar
+            Future.delayed(const Duration(milliseconds: 300), () {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Gasto agregado exitosamente')),
+                );
+              }
+            });
+          }
+        },
+        error: (failure) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error inesperado: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     }
-
-    final addExpenseUseCase = ref.read(addExpenseUseCaseProvider);
-    final result = await addExpenseUseCase(
-      groupId: widget.groupId,
-      paidBy: _selectedPaidBy!,
-      description: _descriptionController.text.trim(),
-      amount: amount,
-      date: _selectedDate,
-      splitAmounts: splitAmounts,
-    );
-
-    setState(() => _isLoading = false);
-
-    if (!mounted) return;
-
-    result.when(
-      success: (_) {
-        ref.invalidate(groupExpensesProvider(widget.groupId));
-        context.pop();
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gasto agregado exitosamente')),
-        );
-      },
-      error: (failure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(failure.message)),
-        );
-      },
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final groupsRepository = ref.watch(groupsRepositoryProvider);
-    final groupAsync = FutureProvider((ref) async {
-      final result = await groupsRepository.getGroupById(widget.groupId);
-      return result.when(
-        success: (group) => group,
-        error: (_) => throw Exception('Grupo no encontrado'),
-      );
-    });
+    final groupAsync = ref.watch(groupProvider(widget.groupId));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Agregar Gasto'),
       ),
-      body: ref.watch(groupAsync).when(
-        data: (group) => SingleChildScrollView(
+      body: groupAsync.when(
+        data: (group) {
+          final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
+          
+          return membersAsync.when(
+            data: (members) => _buildForm(context, group, members),
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (_, __) => _buildForm(context, group, []),
+          );
+        },
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, stack) => Center(child: Text('Error: $error')),
+      ),
+    );
+  }
+
+  Widget _buildForm(BuildContext context, group, List members) {
+    // Crear un mapa de userId -> User para búsqueda rápida
+    final membersMap = <String, User>{};
+    for (final member in members) {
+      if (member is User) {
+        membersMap[member.id] = member;
+      }
+    }
+    
+    return SingleChildScrollView(
           padding: const EdgeInsets.all(16.0),
           child: Form(
             key: _formKey,
@@ -168,18 +223,24 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _amountController,
-                  keyboardType: TextInputType.number,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    FilteringTextInputFormatter.allow(RegExp(r'^\d+([.,]\d{0,2})?')),
+                  ],
                   decoration: const InputDecoration(
-                    labelText: 'Monto',
-                    prefixText: '\$',
+                    labelText: 'Importe',
+                    prefixText: '€ ',
+                    hintText: '0,00',
                   ),
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'El monto es requerido';
+                      return 'El importe es requerido';
                     }
-                    final amount = double.tryParse(value);
+                    // Reemplazar coma por punto para parsear
+                    final normalizedValue = value.replaceAll(',', '.');
+                    final amount = double.tryParse(normalizedValue);
                     if (amount == null || amount <= 0) {
-                      return 'Ingrese un monto válido';
+                      return 'Ingrese un importe válido';
                     }
                     return null;
                   },
@@ -200,8 +261,10 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                 ),
                 const SizedBox(height: 8),
                 ...group.memberIds.map((memberId) {
+                  final member = membersMap[memberId];
+                  final displayName = member != null ? member.name : 'Miembro ${memberId.substring(0, 8)}';
                   return RadioListTile<String>(
-                    title: Text('Miembro ${memberId.substring(0, 8)}'),
+                    title: Text(displayName),
                     value: memberId,
                     groupValue: _selectedPaidBy,
                     onChanged: (value) {
@@ -216,8 +279,10 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                 ),
                 const SizedBox(height: 8),
                 ...group.memberIds.map((memberId) {
+                  final member = membersMap[memberId];
+                  final displayName = member != null ? member.name : 'Miembro ${memberId.substring(0, 8)}';
                   return CheckboxListTile(
-                    title: Text('Miembro ${memberId.substring(0, 8)}'),
+                    title: Text(displayName),
                     value: _selectedMembers[memberId] ?? false,
                     onChanged: (value) {
                       setState(() => _selectedMembers[memberId] = value ?? false);
@@ -241,11 +306,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
               ],
             ),
           ),
-        ),
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
-      ),
-    );
+        );
   }
 }
 

@@ -3,8 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/route_names.dart';
 import '../providers/auth_provider.dart';
-import '../../domain/usecases/login_usecase.dart';
-import '../../../../core/di/providers.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -28,32 +26,65 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_isLoading) return; // Evitar múltiples clics
 
     setState(() => _isLoading = true);
 
-    final loginUseCase = ref.read(loginUseCaseProvider);
-    final result = await loginUseCase(
-      _emailController.text.trim(),
-      _passwordController.text,
-    );
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
 
-    setState(() => _isLoading = false);
-
-    result.when(
-      success: (user) {
-        ref.read(authStateProvider.notifier).checkAuth();
-        if (mounted) {
-          context.go(RouteNames.home);
-        }
-      },
-      error: (failure) {
+      if (password.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(failure.message)),
+            const SnackBar(
+              content: Text('La contraseña es requerida'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
-      },
-    );
+        setState(() => _isLoading = false);
+        return;
+      }
+
+      final loginUseCase = ref.read(loginUseCaseProvider);
+      final result = await loginUseCase(email, password);
+
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+
+      result.when(
+        success: (user) {
+          ref.read(authStateProvider.notifier).setUser(user);
+          if (mounted) {
+            context.go(RouteNames.home);
+          }
+        },
+        error: (failure) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error inesperado: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -126,7 +157,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                         ? const SizedBox(
                             height: 20,
                             width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            ),
                           )
                         : const Text('Iniciar Sesión'),
                   ),

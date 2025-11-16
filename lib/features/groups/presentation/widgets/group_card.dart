@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/group.dart';
+import '../providers/group_balance_provider.dart';
 
-class GroupCard extends StatelessWidget {
+class GroupCard extends ConsumerWidget {
   final Group group;
   final VoidCallback onTap;
 
@@ -12,7 +14,9 @@ class GroupCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final balanceAsync = ref.watch(groupBalanceProvider(group.id));
+
     return Card(
       child: ListTile(
         leading: CircleAvatar(
@@ -31,17 +35,89 @@ class GroupCard extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
         ),
-        trailing: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            const Icon(Icons.people, size: 16),
-            Text('${group.memberIds.length}'),
-          ],
+        trailing: balanceAsync.when(
+          data: (balance) {
+            final isPositive = balance > 0.01;
+            final isNegative = balance < -0.01;
+            final color = isPositive 
+                ? Colors.green 
+                : isNegative 
+                    ? Colors.red 
+                    : Colors.grey;
+            
+            return Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  isPositive 
+                      ? '+€${balance.toStringAsFixed(2).replaceAll('.', ',')}'
+                      : isNegative
+                          ? '-€${(-balance).toStringAsFixed(2).replaceAll('.', ',')}'
+                          : '€0,00',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.people, size: 14),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${group.memberIds.length}',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+          loading: () => Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.people, size: 14),
+                  const SizedBox(width: 4),
+                  Text('${group.memberIds.length}', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
+          error: (_, __) => Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              const Icon(Icons.error_outline, size: 16, color: Colors.grey),
+              const SizedBox(height: 4),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.people, size: 14),
+                  const SizedBox(width: 4),
+                  Text('${group.memberIds.length}', style: const TextStyle(fontSize: 12)),
+                ],
+              ),
+            ],
+          ),
         ),
         onTap: onTap,
       ),
     );
   }
 }
+
+
 

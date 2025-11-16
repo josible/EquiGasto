@@ -5,16 +5,29 @@ import '../../domain/entities/expense.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/repositories/expenses_repository.dart';
 import '../datasources/expenses_local_datasource.dart';
+import '../datasources/expenses_remote_datasource.dart';
 
 class ExpensesRepositoryImpl implements ExpensesRepository {
   final ExpensesLocalDataSource localDataSource;
+  final ExpensesRemoteDataSource remoteDataSource;
 
-  ExpensesRepositoryImpl(this.localDataSource);
+  ExpensesRepositoryImpl(this.localDataSource, this.remoteDataSource);
 
   @override
   Future<Result<List<Expense>>> getGroupExpenses(String groupId) async {
     try {
-      final expenses = await localDataSource.getGroupExpenses(groupId);
+      // Obtener desde Firestore
+      final expenses = await remoteDataSource.getGroupExpenses(groupId);
+      
+      // Guardar en cache local (opcional)
+      try {
+        for (final expense in expenses) {
+          await localDataSource.saveExpense(expense);
+        }
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+      
       return Success(expenses);
     } catch (e) {
       return Error(ServerFailure('Error al obtener gastos: $e'));
@@ -52,7 +65,16 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
         createdAt: DateTime.now(),
       );
 
-      await localDataSource.saveExpense(expense);
+      // Guardar en Firestore
+      await remoteDataSource.createExpense(expense);
+      
+      // Guardar en cache local (opcional)
+      try {
+        await localDataSource.saveExpense(expense);
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+      
       return Success(expense);
     } catch (e) {
       return Error(ServerFailure('Error al agregar gasto: $e'));
@@ -62,7 +84,16 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   @override
   Future<Result<void>> deleteExpense(String expenseId) async {
     try {
-      await localDataSource.deleteExpense(expenseId);
+      // Eliminar de Firestore
+      await remoteDataSource.deleteExpense(expenseId);
+      
+      // Eliminar de cache local (opcional)
+      try {
+        await localDataSource.deleteExpense(expenseId);
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+      
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al eliminar gasto: $e'));
@@ -72,7 +103,8 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   @override
   Future<Result<List<Debt>>> getGroupDebts(String groupId) async {
     try {
-      final expenses = await localDataSource.getGroupExpenses(groupId);
+      // Obtener gastos desde Firestore
+      final expenses = await remoteDataSource.getGroupExpenses(groupId);
       final debts = _calculateDebts(expenses);
       return Success(debts);
     } catch (e) {
@@ -95,6 +127,33 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   }
 
   @override
+  Future<Result<double>> getUserBalanceInGroup(String userId, String groupId) async {
+    try {
+      // Obtener gastos del grupo desde Firestore
+      final expenses = await remoteDataSource.getGroupExpenses(groupId);
+      
+      // Calcular balance neto del usuario
+      double balance = 0.0;
+      
+      for (final expense in expenses) {
+        // Si el usuario pagó, recibe dinero (positivo)
+        if (expense.paidBy == userId) {
+          balance += expense.amount;
+        }
+        
+        // Si el usuario participó, debe su parte (negativo)
+        if (expense.splitAmounts.containsKey(userId)) {
+          balance -= expense.splitAmounts[userId]!;
+        }
+      }
+      
+      return Success(balance);
+    } catch (e) {
+      return Error(ServerFailure('Error al calcular balance: $e'));
+    }
+  }
+
+  @override
   Future<Result<void>> settleDebt(String fromUserId, String toUserId, String groupId, double amount) async {
     try {
       // Mock: En producción esto actualizaría el estado de las deudas
@@ -106,68 +165,81 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   }
 
   List<Debt> _calculateDebts(List<Expense> expenses) {
-    final Map<String, Map<String, double>> balances = {};
+    if (expenses.isEmpty) return [];
+
+    // Calcular el balance neto de cada usuario
+    final Map<String, double> netBalances = {};
 
     for (final expense in expenses) {
-      // Inicializar balance del pagador
-      if (!balances.containsKey(expense.paidBy)) {
-        balances[expense.paidBy] = {};
-      }
+      // El pagador recibe dinero (positivo)
+      netBalances[expense.paidBy] = (netBalances[expense.paidBy] ?? 0) + expense.amount;
 
-      // Distribuir el gasto entre los participantes
+      // Los participantes deben dinero (negativo)
       for (final entry in expense.splitAmounts.entries) {
         final participantId = entry.key;
         final amount = entry.value;
-
-        // Inicializar balance del participante
-        if (!balances.containsKey(participantId)) {
-          balances[participantId] = {};
-        }
-
-        if (participantId != expense.paidBy) {
-          // El participante debe al pagador
-          balances[participantId]![expense.paidBy] = 
-            (balances[participantId]![expense.paidBy] ?? 0) + amount;
-          // El pagador le debe al participante (negativo)
-          balances[expense.paidBy]![participantId] = 
-            (balances[expense.paidBy]![participantId] ?? 0) - amount;
-        }
+        netBalances[participantId] = (netBalances[participantId] ?? 0) - amount;
       }
     }
 
-    // Convertir balances a deudas simplificadas
+    // Simplificar deudas: los que deben (negativo) deben a los que tienen crédito (positivo)
     final List<Debt> debts = [];
-    final processedPairs = <String>{};
+    final debtors = <String, double>{};
+    final creditors = <String, double>{};
 
-    for (final fromUser in balances.keys) {
-      for (final toUser in balances[fromUser]!.keys) {
-        final amount = balances[fromUser]![toUser]!;
-        
-        if (amount > 0.01) { // Tolerancia para errores de punto flotante
-          final pairKey = '${fromUser}_$toUser';
-          final reversePairKey = '${toUser}_$fromUser';
+    // Separar deudores y acreedores
+    for (final entry in netBalances.entries) {
+      if (entry.value < -0.01) {
+        // Deudor (debe dinero)
+        debtors[entry.key] = -entry.value;
+      } else if (entry.value > 0.01) {
+        // Acreedor (le deben dinero)
+        creditors[entry.key] = entry.value;
+      }
+    }
 
-          if (!processedPairs.contains(pairKey) && !processedPairs.contains(reversePairKey)) {
-            // Encontrar el grupo más relevante (por simplicidad, usar el primero)
-            final relevantExpense = expenses.firstWhere(
-              (e) => (e.paidBy == fromUser && e.splitAmounts.containsKey(toUser)) ||
-                     (e.paidBy == toUser && e.splitAmounts.containsKey(fromUser)),
-              orElse: () => expenses.first,
-            );
+    // Asignar deudas de deudores a acreedores
+    final debtorsList = debtors.entries.toList();
+    final creditorsList = creditors.entries.toList();
+    
+    int debtorIndex = 0;
+    int creditorIndex = 0;
 
-            debts.add(Debt(
-              fromUserId: fromUser,
-              toUserId: toUser,
-              groupId: relevantExpense.groupId,
-              amount: amount,
-            ));
-            processedPairs.add(pairKey);
-          }
-        }
+    while (debtorIndex < debtorsList.length && creditorIndex < creditorsList.length) {
+      final debtor = debtorsList[debtorIndex];
+      final creditor = creditorsList[creditorIndex];
+
+      final amount = debtor.value < creditor.value ? debtor.value : creditor.value;
+
+      // Encontrar el grupo más relevante
+      final relevantExpense = expenses.firstWhere(
+        (e) => (e.paidBy == creditor.key && e.splitAmounts.containsKey(debtor.key)) ||
+               (e.paidBy == debtor.key && e.splitAmounts.containsKey(creditor.key)),
+        orElse: () => expenses.first,
+      );
+
+      debts.add(Debt(
+        fromUserId: debtor.key,
+        toUserId: creditor.key,
+        groupId: relevantExpense.groupId,
+        amount: amount,
+      ));
+
+      // Actualizar balances
+      debtorsList[debtorIndex] = MapEntry(debtor.key, debtor.value - amount);
+      creditorsList[creditorIndex] = MapEntry(creditor.key, creditor.value - amount);
+
+      // Avanzar índices
+      if (debtorsList[debtorIndex].value < 0.01) {
+        debtorIndex++;
+      }
+      if (creditorsList[creditorIndex].value < 0.01) {
+        creditorIndex++;
       }
     }
 
     return debts;
   }
 }
+
 

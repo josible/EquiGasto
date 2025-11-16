@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/utils/result.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
@@ -36,6 +35,7 @@ final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final GetCurrentUserUseCase getCurrentUserUseCase;
   final LogoutUseCase logoutUseCase;
+  bool _isSettingUser = false;
 
   AuthNotifier(this.getCurrentUserUseCase, this.logoutUseCase)
       : super(const AsyncValue.loading()) {
@@ -43,8 +43,15 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> checkAuth() async {
+    // No sobrescribir si se está estableciendo un usuario manualmente
+    if (_isSettingUser) return;
+    
     state = const AsyncValue.loading();
     final result = await getCurrentUserUseCase();
+    
+    // Verificar nuevamente antes de actualizar
+    if (_isSettingUser) return;
+    
     result.when(
       success: (user) {
         state = AsyncValue.data(user);
@@ -53,6 +60,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         state = AsyncValue.data(null);
       },
     );
+  }
+
+  void setUser(User user) {
+    _isSettingUser = true;
+    state = AsyncValue.data(user);
+    // Resetear la bandera después de un breve momento
+    Future.microtask(() => _isSettingUser = false);
   }
 
   Future<void> logout() async {

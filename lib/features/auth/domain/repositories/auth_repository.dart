@@ -9,3 +9,4 @@ abstract class AuthRepository {
   Future<Result<void>> updateProfile(String userId, String name, String? avatarUrl);
 }
 
+
