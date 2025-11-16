@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import '../../features/auth/data/datasources/auth_local_datasource.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/user_remote_datasource.dart';
@@ -29,6 +30,17 @@ final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
 });
 
+final googleSignInProvider = Provider<GoogleSignIn>((ref) {
+  // Para web, el clientId se obtiene del meta tag en index.html
+  // Para Android/iOS, se obtiene automáticamente del google-services.json
+  // Los scopes 'email' y 'profile' son suficientes y no requieren People API
+  return GoogleSignIn(
+    scopes: ['email', 'profile'],
+    // No especificamos clientId aquí, se obtiene del meta tag en web
+    // o del google-services.json en Android/iOS
+  );
+});
+
 // SharedPreferences
 final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
   return SharedPreferences.getInstance();
@@ -46,7 +58,8 @@ final authLocalDataSourceProvider = Provider<AuthLocalDataSource>((ref) {
 
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
   final firebaseAuth = ref.watch(firebaseAuthProvider);
-  return AuthRemoteDataSourceImpl(firebaseAuth);
+  final googleSignIn = ref.watch(googleSignInProvider);
+  return AuthRemoteDataSourceImpl(firebaseAuth, googleSignIn);
 });
 
 final userRemoteDataSourceProvider = Provider<UserRemoteDataSource>((ref) {

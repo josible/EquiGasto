@@ -47,4 +47,9 @@ app.*.map.json
 *.g.dart
 *.freezed.dart
 
+# Keystore files
+*.jks
+*.keystore
+**/key.properties
+
 

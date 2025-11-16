@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/di/providers.dart';
 import '../../../expenses/presentation/providers/expenses_provider.dart';
 import '../../../expenses/domain/entities/debt.dart';
-import '../../../expenses/domain/usecases/settle_debt_usecase.dart';
 import '../providers/groups_provider.dart';
 import '../providers/group_members_provider.dart';
 import '../providers/group_balance_provider.dart';
@@ -13,6 +11,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 
 class GroupDetailPage extends ConsumerStatefulWidget {
@@ -71,7 +70,8 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.share),
-                      onPressed: () => _showShareDialog(context, ref, group),
+                      tooltip: 'Compartir grupo',
+                      onPressed: () => _showShareDialog(context, group),
                     ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
@@ -140,49 +140,14 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     );
   }
 
-  Future<void> _showShareDialog(BuildContext context, WidgetRef ref, group) async {
-    final generateCodeUseCase = ref.read(generateInviteCodeUseCaseProvider);
-    
-    // Mostrar loading
+  void _showShareDialog(BuildContext context, group) {
+    // Mostrar diálogo directamente con el ID del grupo como código
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-    );
-
-    final result = await generateCodeUseCase(widget.groupId);
-    
-    if (!context.mounted) return;
-    Navigator.of(context).pop(); // Cerrar loading
-
-    result.when(
-      success: (code) async {
-        // Construir el enlace
-        // Para web: usar la URL actual
-        // Para móvil: usar un formato que funcione con deep links
-        final baseUrl = Uri.base.origin;
-        // Usar formato que funcione tanto en web como en móvil
-        final inviteLink = baseUrl.isEmpty || baseUrl == 'null' 
-            ? 'https://equigasto.app/join/$code' // URL de producción (ajustar según tu dominio)
-            : '$baseUrl/join/$code';
-        
-        await showDialog(
-          context: context,
-          builder: (dialogContext) => _ShareGroupDialog(
-            groupName: group.name,
-            code: code,
-            inviteLink: inviteLink,
-          ),
-        );
-      },
-      error: (failure) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al generar código: ${failure.message}'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      },
+      builder: (dialogContext) => _ShareGroupDialog(
+        groupName: group.name,
+        code: widget.groupId,
+      ),
     );
   }
 }
@@ -190,46 +155,68 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
 class _ShareGroupDialog extends StatelessWidget {
   final String groupName;
   final String code;
-  final String inviteLink;
 
   const _ShareGroupDialog({
     required this.groupName,
     required this.code,
-    required this.inviteLink,
   });
 
-  String get _shareMessage => '¡Únete a mi grupo "$groupName" en EquiGasto!\n\nCódigo: $code\nEnlace: $inviteLink';
+  String get _shareMessage => code;
 
   Future<void> _shareToWhatsApp(BuildContext context) async {
+    print('[COMPARTIR] Iniciando compartir a WhatsApp');
     final message = Uri.encodeComponent(_shareMessage);
-    final url = Uri.parse('https://wa.me/?text=$message');
+    print('[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
     
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      // Intentar primero con el esquema nativo de WhatsApp
+      final nativeUrl = Uri.parse('whatsapp://send?text=$message');
+      print('[COMPARTIR] Intentando abrir URL nativa: $nativeUrl');
+      try {
+        final canLaunch = await canLaunchUrl(nativeUrl);
+        print('[COMPARTIR] canLaunchUrl(nativeUrl) = $canLaunch');
+        if (canLaunch) {
+          print('[COMPARTIR] Lanzando URL nativa...');
+          await launchUrl(nativeUrl, mode: LaunchMode.externalApplication);
+          print('[COMPARTIR] URL nativa lanzada exitosamente');
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+          return;
+        } else {
+          print('[COMPARTIR] No se puede lanzar URL nativa, intentando web...');
+        }
+      } catch (e) {
+        print('[COMPARTIR] Error al intentar URL nativa: $e');
+        // Si falla, intentar con la URL web
+      }
+      
+      // Si el esquema nativo no funciona, intentar con la URL web
+      final webUrl = Uri.parse('https://wa.me/?text=$message');
+      print('[COMPARTIR] Intentando abrir URL web: $webUrl');
+      final canLaunchWeb = await canLaunchUrl(webUrl);
+      print('[COMPARTIR] canLaunchUrl(webUrl) = $canLaunchWeb');
+      if (canLaunchWeb) {
+        print('[COMPARTIR] Lanzando URL web...');
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+        print('[COMPARTIR] URL web lanzada exitosamente');
         if (context.mounted) {
           Navigator.of(context).pop();
         }
       } else {
-        // Intentar con el esquema nativo
-        final nativeUrl = Uri.parse('whatsapp://send?text=$message');
-        if (await canLaunchUrl(nativeUrl)) {
-          await launchUrl(nativeUrl);
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('WhatsApp no está instalado'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
+        print('[COMPARTIR] No se puede lanzar URL web');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo abrir WhatsApp. Intenta compartir con otra aplicación.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[COMPARTIR] Error general al abrir WhatsApp: $e');
+      print('[COMPARTIR] Stack trace: $stackTrace');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -242,35 +229,59 @@ class _ShareGroupDialog extends StatelessWidget {
   }
 
   Future<void> _shareToTelegram(BuildContext context) async {
+    print('[COMPARTIR] Iniciando compartir a Telegram');
     final message = Uri.encodeComponent(_shareMessage);
-    final url = Uri.parse('https://t.me/share/url?url=${Uri.encodeComponent(inviteLink)}&text=${Uri.encodeComponent('¡Únete a mi grupo "$groupName" en EquiGasto!\n\nCódigo: $code')}');
+    print('[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
     
     try {
-      if (await canLaunchUrl(url)) {
-        await launchUrl(url, mode: LaunchMode.externalApplication);
+      // Intentar primero con el esquema nativo de Telegram
+      final nativeUrl = Uri.parse('tg://msg?text=$message');
+      print('[COMPARTIR] Intentando abrir URL nativa: $nativeUrl');
+      try {
+        final canLaunch = await canLaunchUrl(nativeUrl);
+        print('[COMPARTIR] canLaunchUrl(nativeUrl) = $canLaunch');
+        if (canLaunch) {
+          print('[COMPARTIR] Lanzando URL nativa...');
+          await launchUrl(nativeUrl, mode: LaunchMode.externalApplication);
+          print('[COMPARTIR] URL nativa lanzada exitosamente');
+          if (context.mounted) {
+            Navigator.of(context).pop();
+          }
+          return;
+        } else {
+          print('[COMPARTIR] No se puede lanzar URL nativa, intentando web...');
+        }
+      } catch (e) {
+        print('[COMPARTIR] Error al intentar URL nativa: $e');
+        // Si falla, intentar con la URL web
+      }
+      
+      // Si el esquema nativo no funciona, intentar con la URL web
+      final webUrl = Uri.parse('https://t.me/share/url?text=${Uri.encodeComponent(code)}');
+      print('[COMPARTIR] Intentando abrir URL web: $webUrl');
+      final canLaunchWeb = await canLaunchUrl(webUrl);
+      print('[COMPARTIR] canLaunchUrl(webUrl) = $canLaunchWeb');
+      if (canLaunchWeb) {
+        print('[COMPARTIR] Lanzando URL web...');
+        await launchUrl(webUrl, mode: LaunchMode.externalApplication);
+        print('[COMPARTIR] URL web lanzada exitosamente');
         if (context.mounted) {
           Navigator.of(context).pop();
         }
       } else {
-        // Intentar con el esquema nativo
-        final nativeUrl = Uri.parse('tg://msg?text=$message');
-        if (await canLaunchUrl(nativeUrl)) {
-          await launchUrl(nativeUrl);
-          if (context.mounted) {
-            Navigator.of(context).pop();
-          }
-        } else {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Telegram no está instalado'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
+        print('[COMPARTIR] No se puede lanzar URL web');
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('No se pudo abrir Telegram. Intenta compartir con otra aplicación.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[COMPARTIR] Error general al abrir Telegram: $e');
+      print('[COMPARTIR] Stack trace: $stackTrace');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -283,12 +294,19 @@ class _ShareGroupDialog extends StatelessWidget {
   }
 
   Future<void> _shareGeneric(BuildContext context) async {
+    print('[COMPARTIR] Iniciando compartir genérico');
+    print('[COMPARTIR] Mensaje: ${_shareMessage.substring(0, _shareMessage.length > 100 ? 100 : _shareMessage.length)}...');
     try {
+      print('[COMPARTIR] Llamando a Share.share...');
       await Share.share(_shareMessage);
+      print('[COMPARTIR] Share.share completado');
       if (context.mounted) {
         Navigator.of(context).pop();
+        print('[COMPARTIR] Diálogo cerrado');
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('[COMPARTIR] Error al compartir: $e');
+      print('[COMPARTIR] Stack trace: $stackTrace');
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -302,7 +320,7 @@ class _ShareGroupDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isMobile = Platform.isAndroid || Platform.isIOS;
+    final isMobile = !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
     return AlertDialog(
       title: const Text('Compartir grupo'),
@@ -320,13 +338,6 @@ class _ShareGroupDialog extends StatelessWidget {
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text('Enlace:'),
-            const SizedBox(height: 8),
-            SelectableText(
-              inviteLink,
-              style: const TextStyle(fontSize: 12),
             ),
             if (isMobile) ...[
               const SizedBox(height: 24),
@@ -351,7 +362,10 @@ class _ShareGroupDialog extends StatelessWidget {
                   child: const Icon(Icons.chat, color: Colors.white, size: 24),
                 ),
                 title: const Text('WhatsApp'),
-                onTap: () => _shareToWhatsApp(context),
+                onTap: () {
+                  print('[COMPARTIR] Botón WhatsApp presionado');
+                  _shareToWhatsApp(context);
+                },
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               // Telegram
@@ -365,14 +379,20 @@ class _ShareGroupDialog extends StatelessWidget {
                   child: const Icon(Icons.send, color: Colors.white, size: 24),
                 ),
                 title: const Text('Telegram'),
-                onTap: () => _shareToTelegram(context),
+                onTap: () {
+                  print('[COMPARTIR] Botón Telegram presionado');
+                  _shareToTelegram(context);
+                },
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
               // Compartir genérico
               ListTile(
                 leading: const Icon(Icons.share, color: Colors.blue),
                 title: const Text('Otras aplicaciones'),
-                onTap: () => _shareGeneric(context),
+                onTap: () {
+                  print('[COMPARTIR] Botón Otras aplicaciones presionado');
+                  _shareGeneric(context);
+                },
                 trailing: const Icon(Icons.arrow_forward_ios, size: 16),
               ),
             ],
@@ -390,17 +410,6 @@ class _ShareGroupDialog extends StatelessWidget {
             }
           },
           child: const Text('Copiar código'),
-        ),
-        TextButton(
-          onPressed: () {
-            Clipboard.setData(ClipboardData(text: inviteLink));
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Enlace copiado al portapapeles')),
-              );
-            }
-          },
-          child: const Text('Copiar enlace'),
         ),
         if (!isMobile)
           ElevatedButton.icon(

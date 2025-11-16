@@ -18,6 +18,61 @@ class AuthRepositoryImpl implements AuthRepository {
   );
 
   @override
+  Future<Result<User>> loginWithGoogle() async {
+    try {
+      // Autenticar con Google
+      final userCredential = await remoteDataSource.signInWithGoogle();
+      final firebaseUser = userCredential.user;
+      
+      if (firebaseUser == null) {
+        return const Error(AuthFailure('Error al iniciar sesión con Google'));
+      }
+
+      // Intentar obtener datos del usuario desde Firestore
+      User? user;
+      try {
+        user = await userRemoteDataSource.getUserById(firebaseUser.uid);
+      } catch (e) {
+        // Si falla Firestore (permisos, etc.), continuamos con datos de Auth
+        user = null;
+      }
+      
+      // Si no existe en Firestore o falló, crear usuario desde Firebase Auth
+      if (user == null) {
+        user = User(
+          id: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          name: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'Usuario',
+          avatarUrl: firebaseUser.photoURL,
+          createdAt: DateTime.now(),
+        );
+        
+        // Intentar crear en Firestore (no crítico si falla)
+        try {
+          await userRemoteDataSource.createUser(user);
+        } catch (e) {
+          // Si falla, continuamos con el usuario de Auth
+        }
+      }
+      
+      // Guardar en cache local (no crítico si falla)
+      try {
+        await localDataSource.saveUser(user);
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+      
+      return Success(user);
+    } catch (e) {
+      String errorMessage = 'Error al iniciar sesión con Google';
+      if (e is Exception) {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      }
+      return Error(AuthFailure(errorMessage));
+    }
+  }
+
+  @override
   Future<Result<User>> login(String email, String password) async {
     try {
       if (email.isEmpty || !email.contains('@')) {

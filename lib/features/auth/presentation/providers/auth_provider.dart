@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/usecases/login_usecase.dart';
+import '../../domain/usecases/login_with_google_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
@@ -10,6 +11,11 @@ import '../../../../core/di/providers.dart';
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return LoginUseCase(repository);
+});
+
+final loginWithGoogleUseCaseProvider = Provider<LoginWithGoogleUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return LoginWithGoogleUseCase(repository);
 });
 
 final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
