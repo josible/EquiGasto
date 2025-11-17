@@ -119,7 +119,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                               )
                             : const Icon(Icons.logout),
                         tooltip: 'Salir del grupo',
-                        onPressed: _isLeavingGroup || currentUser == null
+                        onPressed: _isLeavingGroup
                             ? null
                             : () => _handleLeaveGroupTap(
                                   context,
@@ -391,17 +391,36 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     }
   }
 
-  void _showShareDialog(
+  Future<void> _showShareDialog(
     BuildContext context,
     group,
-    User? inviter,
-  ) {
-    // Mostrar diálogo directamente con el ID del grupo como código
+    User? currentUser,
+  ) async {
+    // Obtener información del creador
+    final membersAsync = ref.read(groupMembersProvider([group.createdBy]));
+    final members = membersAsync.when(
+      data: (data) => data,
+      loading: () => <User>[],
+      error: (_, __) => <User>[],
+    );
+    final inviter = members.isNotEmpty ? members.first : null;
+
+    // Obtener o generar el código de invitación
+    final generateCodeUseCase = ref.read(generateInviteCodeUseCaseProvider);
+    final codeResult = await generateCodeUseCase(widget.groupId);
+
+    final inviteCode = codeResult.when(
+      success: (code) => code,
+      error: (_) => widget.groupId, // Fallback al groupId si falla
+    );
+
+    if (!context.mounted) return;
+
     showDialog(
       context: context,
       builder: (dialogContext) => _ShareGroupDialog(
         groupName: group.name,
-        code: widget.groupId,
+        code: inviteCode,
         inviterName: inviter?.name ?? 'Un miembro de EquiGasto',
       ),
     );
@@ -440,7 +459,8 @@ $_storeUrl
     print('[COMPARTIR] Iniciando compartir a WhatsApp');
     final message = Uri.encodeComponent(_shareMessage);
     print(
-        '[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
+      '[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...',
+    );
 
     try {
       // Intentar primero con el esquema nativo de WhatsApp
@@ -483,7 +503,8 @@ $_storeUrl
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                  'No se pudo abrir WhatsApp. Intenta compartir con otra aplicación.'),
+                'No se pudo abrir WhatsApp. Intenta compartir con otra aplicación.',
+              ),
               backgroundColor: Colors.orange,
             ),
           );
@@ -507,7 +528,8 @@ $_storeUrl
     print('[COMPARTIR] Iniciando compartir a Telegram');
     final message = Uri.encodeComponent(_shareMessage);
     print(
-        '[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
+      '[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...',
+    );
 
     try {
       // Intentar primero con el esquema nativo de Telegram
@@ -551,7 +573,8 @@ $_storeUrl
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
-                  'No se pudo abrir Telegram. Intenta compartir con otra aplicación.'),
+                'No se pudo abrir Telegram. Intenta compartir con otra aplicación.',
+              ),
               backgroundColor: Colors.orange,
             ),
           );
@@ -574,7 +597,8 @@ $_storeUrl
   Future<void> _shareGeneric(BuildContext context) async {
     print('[COMPARTIR] Iniciando compartir genérico');
     print(
-        '[COMPARTIR] Mensaje: ${_shareMessage.substring(0, _shareMessage.length > 100 ? 100 : _shareMessage.length)}...');
+      '[COMPARTIR] Mensaje: ${_shareMessage.substring(0, _shareMessage.length > 100 ? 100 : _shareMessage.length)}...',
+    );
     try {
       print('[COMPARTIR] Llamando a Share.share...');
       await Share.share(_shareMessage);
@@ -636,7 +660,8 @@ $_storeUrl
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                        content: Text('Enlace copiado al portapapeles')),
+                      content: Text('Enlace copiado al portapapeles'),
+                    ),
                   );
                 }
               },
@@ -800,8 +825,11 @@ class _ExpensesTab extends ConsumerWidget {
                                     const SizedBox(height: 4),
                                     Row(
                                       children: [
-                                        const Icon(Icons.person,
-                                            size: 14, color: Colors.grey),
+                                        const Icon(
+                                          Icons.person,
+                                          size: 14,
+                                          color: Colors.grey,
+                                        ),
                                         const SizedBox(width: 4),
                                         Text(
                                           'Pagado por: $paidByName',
@@ -831,7 +859,9 @@ class _ExpensesTab extends ConsumerWidget {
                                       onSelected: (value) {
                                         if (value == 'edit') {
                                           _navigateToEditExpense(
-                                              context, expense);
+                                            context,
+                                            expense,
+                                          );
                                         } else if (value == 'delete') {
                                           _confirmDeleteExpense(
                                             context,
@@ -906,7 +936,8 @@ class _ExpensesTab extends ConsumerWidget {
                       leading: const Icon(Icons.receipt),
                       title: Text(expense.description),
                       subtitle: Text(
-                          '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}'),
+                        '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                      ),
                       trailing: Text(
                         '${expense.date.day}/${expense.date.month}/${expense.date.year}',
                       ),
@@ -1423,8 +1454,10 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                           ),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.check_circle,
-                              color: Colors.green),
+                          icon: const Icon(
+                            Icons.check_circle,
+                            color: Colors.green,
+                          ),
                           onPressed: () => _showSettleDebtDialog(
                             context,
                             ref,
@@ -1467,7 +1500,8 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                         child: Icon(Icons.arrow_forward, color: Colors.white),
                       ),
                       title: Text(
-                          'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}'),
+                        'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}',
+                      ),
                       subtitle: Text(
                         '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
                         style: const TextStyle(

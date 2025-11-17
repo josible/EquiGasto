@@ -24,19 +24,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   void initState() {
     super.initState();
-    ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
-      next.when(
-        data: (user) {
-          if (user != null) {
-            _navigateToHome();
-          } else {
-            _hasNavigated = false;
-          }
-        },
-        loading: () {},
-        error: (_, __) {},
-      );
-    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _attemptAutoLoginFromStorage();
     });
@@ -199,6 +186,21 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
+
+    // Escuchar cambios en el estado de autenticación
+    ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
+      next.when(
+        data: (user) {
+          if (user != null) {
+            _navigateToHome();
+          } else {
+            _hasNavigated = false;
+          }
+        },
+        loading: () {},
+        error: (_, __) {},
+      );
+    });
 
     if (authState.isLoading) {
       return const Scaffold(

@@ -1,5 +1,5 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../../core/utils/result.dart';
 import '../../domain/entities/group.dart';
 import '../../domain/usecases/get_user_groups_usecase.dart';
 import '../../domain/usecases/create_group_usecase.dart';
@@ -58,12 +58,21 @@ final removeUserFromGroupUseCaseProvider =
 
 final groupByInviteCodeProvider =
     FutureProvider.family<Group, String>((ref, inviteCode) async {
+  debugPrint(
+      '🔍 groupByInviteCodeProvider - Buscando grupo con código: $inviteCode');
   final useCase = ref.watch(getGroupByInviteCodeUseCaseProvider);
   final result = await useCase(inviteCode);
 
   return result.when(
-    success: (group) => group,
-    error: (failure) => throw Exception(failure.message),
+    success: (group) {
+      debugPrint(
+          '✅ groupByInviteCodeProvider - Grupo encontrado: ${group.id} - ${group.name}');
+      return group;
+    },
+    error: (failure) {
+      debugPrint('❌ groupByInviteCodeProvider - Error: ${failure.message}');
+      throw Exception(failure.message);
+    },
   );
 });
 

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -77,6 +78,7 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint('🔍 JoinGroupPage - Código recibido: ${widget.code}');
     final groupAsync = ref.watch(groupByInviteCodeProvider(widget.code));
 
     return Scaffold(
@@ -244,8 +246,14 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
             error: (_, __) => const Center(child: Text('Error al cargar información del creador')),
           );
         },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(
+        loading: () {
+          debugPrint('⏳ JoinGroupPage - Cargando grupo con código: ${widget.code}');
+          return const Center(child: CircularProgressIndicator());
+        },
+        error: (error, stack) {
+          debugPrint('❌ JoinGroupPage - Error al cargar grupo: $error');
+          debugPrint('❌ Stack trace: $stack');
+          return Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
@@ -257,18 +265,18 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
                   color: Colors.red,
                 ),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   'Código de invitación inválido',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 8),
-                Text(
+                const Text(
                   'El código que intentas usar no existe o ha expirado.',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey,
                   ),
@@ -283,7 +291,7 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
             ),
           ),
         ),
-      ),
+      ,),
     );
   }
 }
