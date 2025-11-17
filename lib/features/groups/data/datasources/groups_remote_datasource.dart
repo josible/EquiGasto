@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/group.dart';
 
@@ -159,11 +160,20 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
   @override
   Future<String?> getGroupIdByInviteCode(String inviteCode) async {
     try {
-      final doc = await firestore.collection('group_invites').doc(inviteCode.toUpperCase()).get();
-      if (!doc.exists) return null;
+      final codeUpper = inviteCode.toUpperCase();
+      debugPrint('🔍 getGroupIdByInviteCode - Buscando en Firestore código: $codeUpper');
+      final doc = await firestore.collection('group_invites').doc(codeUpper).get();
+      debugPrint('🔍 getGroupIdByInviteCode - Documento existe: ${doc.exists}');
+      if (!doc.exists) {
+        debugPrint('❌ getGroupIdByInviteCode - Documento no existe en Firestore');
+        return null;
+      }
       final data = doc.data();
-      return data?['groupId'] as String?;
+      final groupId = data?['groupId'] as String?;
+      debugPrint('🔍 getGroupIdByInviteCode - groupId extraído: $groupId');
+      return groupId;
     } catch (e) {
+      debugPrint('❌ getGroupIdByInviteCode - Excepción: $e');
       throw Exception('Error al obtener grupo por código: $e');
     }
   }

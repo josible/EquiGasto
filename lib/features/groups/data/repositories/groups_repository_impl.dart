@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
@@ -240,14 +241,18 @@ class GroupsRepositoryImpl implements GroupsRepository {
   @override
   Future<Result<Group>> getGroupByInviteCode(String inviteCode) async {
     try {
+      debugPrint('🔍 getGroupByInviteCode - Buscando código: $inviteCode');
       final groupId = await remoteDataSource.getGroupIdByInviteCode(inviteCode);
+      debugPrint('🔍 getGroupByInviteCode - groupId encontrado: $groupId');
       if (groupId == null) {
+        debugPrint('❌ getGroupByInviteCode - Código no encontrado en Firestore');
         return const Error(ValidationFailure('Código de invitación inválido'));
       }
 
       final groupResult = await getGroupById(groupId);
       return groupResult;
     } catch (e) {
+      debugPrint('❌ getGroupByInviteCode - Excepción: $e');
       return Error(ServerFailure('Error al obtener grupo por código: $e'));
     }
   }

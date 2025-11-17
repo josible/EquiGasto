@@ -398,20 +398,27 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
   ) async {
     // Obtener información del creador
     final membersAsync = ref.read(groupMembersProvider([group.createdBy]));
-    final members = membersAsync.when(
-      data: (data) => data,
-      loading: () => <User>[],
-      error: (_, __) => <User>[],
+    final members = await membersAsync.when(
+      data: (data) => Future.value(data),
+      loading: () => Future.value(<User>[]),
+      error: (_, __) => Future.value(<User>[]),
     );
     final inviter = members.isNotEmpty ? members.first : null;
 
     // Obtener o generar el código de invitación
+    debugPrint('🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
     final generateCodeUseCase = ref.read(generateInviteCodeUseCaseProvider);
     final codeResult = await generateCodeUseCase(widget.groupId);
 
     final inviteCode = codeResult.when(
-      success: (code) => code,
-      error: (_) => widget.groupId, // Fallback al groupId si falla
+      success: (code) {
+        debugPrint('✅ _showShareDialog - Código generado: $code');
+        return code;
+      },
+      error: (failure) {
+        debugPrint('❌ _showShareDialog - Error al generar código: ${failure.message}');
+        return widget.groupId; // Fallback al groupId si falla
+      },
     );
 
     if (!context.mounted) return;

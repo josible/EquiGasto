@@ -254,44 +254,45 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
           debugPrint('❌ JoinGroupPage - Error al cargar grupo: $error');
           debugPrint('❌ Stack trace: $stack');
           return Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.error_outline,
-                  size: 64,
-                  color: Colors.red,
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Código de invitación inválido',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            child: Padding(
+              padding: const EdgeInsets.all(24.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 64,
+                    color: Colors.red,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'El código que intentas usar no existe o ha expirado.',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey,
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Código de invitación inválido',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 24),
-                ElevatedButton(
-                  onPressed: () => context.go(RouteNames.groups),
-                  child: const Text('Volver'),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  const Text(
+                    'El código que intentas usar no existe o ha expirado.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => context.go(RouteNames.groups),
+                    child: const Text('Volver'),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ),
-      ,),
+          );
+        },
+      ),
     );
   }
 }
