@@ -415,6 +415,7 @@ class _ShareGroupDialog extends StatelessWidget {
 
   static const String _storeUrl =
       'https://play.google.com/store/apps/details?id=com.sire.equigasto';
+  static const String _webBaseUrl = 'https://sireprojects.netlify.app';
 
   const _ShareGroupDialog({
     required this.groupName,
@@ -422,13 +423,15 @@ class _ShareGroupDialog extends StatelessWidget {
     required this.inviterName,
   });
 
+  String get _joinUrl => '$_webBaseUrl/join/$code';
+
   String get _shareMessage => '''
 ¡Hola! $inviterName te ha invitado al grupo "$groupName" en EquiGasto.
 
-Si ya tienes la app instalada, abre EquiGasto y pega este código:
-$code
+Toca este enlace para unirte:
+$_joinUrl
 
-¿Aún no tienes EquiGasto? Instálala aquí y usa el mismo código para unirte:
+¿Aún no tienes EquiGasto? Instálala aquí:
 $_storeUrl
 '''
       .trim();
@@ -614,6 +617,31 @@ $_storeUrl
                 fontWeight: FontWeight.bold,
                 letterSpacing: 2,
               ),
+            ),
+            const SizedBox(height: 24),
+            const Text('Enlace de invitación:'),
+            const SizedBox(height: 8),
+            SelectableText(
+              _joinUrl,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.blue,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton.icon(
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: _joinUrl));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Enlace copiado al portapapeles')),
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy, size: 16),
+              label: const Text('Copiar enlace'),
             ),
             const SizedBox(height: 24),
             if (isMobile) ...[
