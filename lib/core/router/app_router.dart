@@ -30,7 +30,10 @@ class AppRouter {
       GoRoute(
         path: RouteNames.home,
         name: 'home',
-        builder: (context, state) => const HomePage(),
+        builder: (context, state) {
+          final initialTabIndex = state.extra as int?;
+          return HomePage(initialTabIndex: initialTabIndex ?? 0);
+        },
       ),
       GoRoute(
         path: RouteNames.groups,

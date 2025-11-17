@@ -2,23 +2,105 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../../../core/router/app_router.dart';
 import '../../../../core/constants/route_names.dart';
+import '../../../../core/di/providers.dart';
+import '../../../../core/services/local_auth_service.dart';
+import '../../../../core/widgets/ad_banner.dart';
+import '../../../auth/presentation/pages/profile_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/pages/groups_list_page.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../groups/presentation/widgets/create_group_dialog.dart';
-import '../../../../core/di/providers.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
-import '../../../auth/presentation/pages/profile_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
-import '../../../../core/widgets/ad_banner.dart';
 
-class HomePage extends ConsumerWidget {
-  const HomePage({super.key});
+class HomePage extends ConsumerStatefulWidget {
+  final int initialTabIndex;
+
+  const HomePage({super.key, this.initialTabIndex = 0});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends ConsumerState<HomePage> {
+  bool _isUnlocked = false;
+  bool _isAuthenticating = true;
+  String? _authError;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _authenticateUser());
+  }
+
+  Future<void> _authenticateUser() async {
+    setState(() {
+      _isAuthenticating = true;
+      _authError = null;
+    });
+
+    final localAuthService = ref.read(localAuthServiceProvider);
+    final success = await localAuthService.authenticate();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isUnlocked = success;
+      _isAuthenticating = false;
+      if (!success) {
+        _authError =
+            'No se pudo verificar tu identidad. Usa tu huella o patrón para continuar.';
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isUnlocked) {
+      return Scaffold(
+        body: Center(
+          child: _isAuthenticating
+              ? Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text('Verificando identidad...'),
+                  ],
+                )
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    const Icon(Icons.fingerprint, size: 64, color: Colors.blue),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Protegido con huella o patrón',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      textAlign: TextAlign.center,
+                    ),
+                    if (_authError != null) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        _authError!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    ElevatedButton.icon(
+                      onPressed: _authenticateUser,
+                      icon: const Icon(Icons.lock_open),
+                      label: const Text('Intentar de nuevo'),
+                    ),
+                  ],
+                ),
+        ),
+      );
+    }
+
     final authState = ref.watch(authStateProvider);
 
     return authState.when(
@@ -33,6 +115,7 @@ class HomePage extends ConsumerWidget {
         }
 
         return DefaultTabController(
+          initialIndex: widget.initialTabIndex,
           length: 3,
           child: Scaffold(
             appBar: AppBar(

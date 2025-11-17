@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:local_auth/local_auth.dart';
 import '../../features/auth/data/datasources/auth_local_datasource.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/user_remote_datasource.dart';
@@ -21,10 +22,20 @@ import '../../features/notifications/data/repositories/notifications_repository_
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
 import '../../features/notifications/domain/usecases/create_notification_usecase.dart';
 import 'null_datasources.dart' as null_ds;
+import '../services/local_auth_service.dart';
 
 // Firebase
 final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
   return firebase_auth.FirebaseAuth.instance;
+});
+
+final localAuthenticationProvider = Provider<LocalAuthentication>((ref) {
+  return LocalAuthentication();
+});
+
+final localAuthServiceProvider = Provider<LocalAuthService>((ref) {
+  final localAuth = ref.watch(localAuthenticationProvider);
+  return LocalAuthService(localAuth);
 });
 
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {

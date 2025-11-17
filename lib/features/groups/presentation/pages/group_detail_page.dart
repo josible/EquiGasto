@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -37,6 +39,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
   int _currentTabIndex = 0;
   bool _isDeletingGroup = false;
   bool _isLeavingGroup = false;
+  static const double _balanceTolerance = 0.01;
 
   @override
   void initState() {
@@ -117,7 +120,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                         tooltip: 'Salir del grupo',
                         onPressed: _isLeavingGroup || currentUser == null
                             ? null
-                            : () => _confirmLeaveGroup(
+                            : () => _handleLeaveGroupTap(
                                   context,
                                   group,
                                   currentUser,
@@ -189,6 +192,33 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
         error: (_, __) => const SizedBox.shrink(),
       ),
     );
+  }
+
+  Future<void> _handleLeaveGroupTap(
+    BuildContext context,
+    group,
+    User currentUser,
+  ) async {
+    ref.invalidate(groupBalanceProvider(group.id));
+    final balance = await ref.read(groupBalanceProvider(group.id).future);
+
+    if (!mounted) return;
+
+    if (balance < -_balanceTolerance) {
+      final amount = balance.abs().toStringAsFixed(2);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'No puedes salir: aún debes €$amount en este grupo. Liquida tus deudas primero.',
+          ),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+      return;
+    }
+
+    await _confirmLeaveGroup(context, group, currentUser);
   }
 
   Future<void> _confirmDeleteGroup(BuildContext context, group) async {
@@ -294,13 +324,10 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
 
     await result.when(
       success: (_) async {
-        await _notifyMembersUserLeft(group, currentUser);
-        ref.invalidate(groupsListProvider);
-        ref.invalidate(groupProvider(group.id));
-        ref.invalidate(groupMembersProvider(group.memberIds));
-        ref.invalidate(groupExpensesProvider(group.id));
-        ref.invalidate(groupDebtsProvider(group.id));
-        ref.invalidate(groupBalanceProvider(group.id));
+        unawaited(_notifyMembersUserLeft(group, currentUser));
+        _refreshGroupRelatedData(group);
+
+        if (!mounted) return;
 
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -308,7 +335,8 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
             backgroundColor: Colors.blue,
           ),
         );
-        context.go(RouteNames.groups);
+
+        _navigateToGroupsList();
       },
       error: (failure) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -319,6 +347,24 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
         );
       },
     );
+  }
+
+  void _refreshGroupRelatedData(group) {
+    ref.invalidate(groupsListProvider);
+    ref.invalidate(groupProvider(group.id));
+    ref.invalidate(groupMembersProvider(group.memberIds));
+    ref.invalidate(groupExpensesProvider(group.id));
+    ref.invalidate(groupDebtsProvider(group.id));
+    ref.invalidate(groupBalanceProvider(group.id));
+  }
+
+  void _navigateToGroupsList() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      const groupsTabIndex = 1;
+      context.go(RouteNames.home, extra: groupsTabIndex);
+    });
   }
 
   Future<void> _notifyMembersUserLeft(group, User user) async {
@@ -1119,32 +1165,19 @@ class _MembersTab extends ConsumerWidget {
     WidgetRef ref,
     String groupId,
   ) async {
-    final emailController = TextEditingController();
-    final formKey = GlobalKey<FormState>();
-
-    try {
-      await showDialog(
-        context: context,
-        builder: (dialogContext) => _InviteMemberDialog(
-          emailController: emailController,
-          formKey: formKey,
-          groupId: groupId,
-        ),
-      );
-    } finally {
-      emailController.dispose();
-    }
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => _InviteMemberDialog(
+        groupId: groupId,
+      ),
+    );
   }
 }
 
 class _InviteMemberDialog extends ConsumerStatefulWidget {
-  final TextEditingController emailController;
-  final GlobalKey<FormState> formKey;
   final String groupId;
 
   const _InviteMemberDialog({
-    required this.emailController,
-    required this.formKey,
     required this.groupId,
   });
 
@@ -1155,9 +1188,23 @@ class _InviteMemberDialog extends ConsumerStatefulWidget {
 
 class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
   bool _isLoading = false;
+  late final TextEditingController _emailController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _emailController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    super.dispose();
+  }
 
   Future<void> _handleInvite() async {
-    if (!widget.formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
@@ -1165,7 +1212,7 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
       final inviteUseCase = ref.read(inviteUserToGroupUseCaseProvider);
       final result = await inviteUseCase(
         widget.groupId,
-        widget.emailController.text.trim(),
+        _emailController.text.trim(),
       );
 
       if (!mounted) return;
@@ -1214,9 +1261,9 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
     return AlertDialog(
       title: const Text('Invitar miembro'),
       content: Form(
-        key: widget.formKey,
+        key: _formKey,
         child: TextFormField(
-          controller: widget.emailController,
+          controller: _emailController,
           keyboardType: TextInputType.emailAddress,
           decoration: const InputDecoration(
             labelText: 'Email del usuario',
