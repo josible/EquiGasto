@@ -107,6 +107,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           }
         },
         error: (failure) {
+          // No mostrar error si el usuario canceló
+          if (failure.message.contains('cancelado')) {
+            return;
+          }
+          
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -121,10 +126,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
+      
+      // No mostrar error si el usuario canceló
+      final errorString = e.toString();
+      if (errorString.contains('cancelado')) {
+        return;
+      }
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error inesperado: $e'),
+            content: Text('Error al iniciar sesión con Google. Por favor, intenta de nuevo.'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -228,11 +240,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       side: const BorderSide(color: Colors.grey),
                     ),
-                    icon: Image.network(
-                      'https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg',
-                      height: 24,
-                      width: 24,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.g_mobiledata, size: 24),
+                    icon: const Icon(
+                      Icons.g_mobiledata,
+                      size: 24,
+                      color: Colors.redAccent,
                     ),
                     label: const Text('Continuar con Google'),
                   ),

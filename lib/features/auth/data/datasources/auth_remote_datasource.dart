@@ -5,6 +5,7 @@ abstract class AuthRemoteDataSource {
   Future<firebase_auth.UserCredential> signInWithEmailAndPassword(String email, String password);
   Future<firebase_auth.UserCredential> createUserWithEmailAndPassword(String email, String password);
   Future<firebase_auth.UserCredential> signInWithGoogle();
+  Future<firebase_auth.UserCredential> linkGoogleAccount();
   Future<void> signOut();
   firebase_auth.User? getCurrentFirebaseUser();
   Stream<firebase_auth.User?> getAuthStateChanges();
@@ -43,29 +44,110 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<firebase_auth.UserCredential> signInWithGoogle() async {
     try {
-      // Iniciar el flujo de autenticación de Google
-      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
-      
-      if (googleUser == null) {
-        // El usuario canceló el inicio de sesión
-        throw Exception('Inicio de sesión con Google cancelado');
+      final GoogleSignInAccount googleUser = await _authenticateWithGoogle();
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+
+      if (googleAuth.idToken == null) {
+        throw Exception(
+          'No se pudieron obtener las credenciales de Google. Por favor, intenta de nuevo.',
+        );
       }
 
-      // Obtener los detalles de autenticación del usuario de Google
-      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
-
-      // Crear una nueva credencial
       final credential = firebase_auth.GoogleAuthProvider.credential(
-        accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
-      // Iniciar sesión en Firebase con la credencial de Google
       return await firebaseAuth.signInWithCredential(credential);
     } on firebase_auth.FirebaseAuthException catch (e) {
-      throw _handleAuthException(e);
+      // Manejar errores específicos de Firebase Auth
+      String errorMessage;
+      switch (e.code) {
+        case 'account-exists-with-different-credential':
+          // Extraer el email del error si está disponible
+          final email = e.email;
+          if (email != null) {
+            errorMessage = 'Ya existe una cuenta con el email $email registrada con email y contraseña. Por favor, inicia sesión primero con tu email y contraseña, y luego podrás vincular tu cuenta de Google desde tu perfil.';
+          } else {
+            errorMessage = 'Ya existe una cuenta con este email usando otro método de inicio de sesión (email y contraseña). Por favor, inicia sesión primero con tu email y contraseña.';
+          }
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Las credenciales de Google han expirado o son inválidas. Por favor, intenta de nuevo.';
+          break;
+        case 'operation-not-allowed':
+          errorMessage = 'El inicio de sesión con Google no está habilitado. Contacta al administrador.';
+          break;
+        case 'user-disabled':
+          errorMessage = 'Esta cuenta ha sido deshabilitada. Contacta al administrador.';
+          break;
+        case 'user-not-found':
+          errorMessage = 'No se encontró una cuenta con estas credenciales.';
+          break;
+        case 'wrong-password':
+          errorMessage = 'Credenciales incorrectas.';
+          break;
+        case 'invalid-verification-code':
+          errorMessage = 'Código de verificación inválido.';
+          break;
+        case 'invalid-verification-id':
+          errorMessage = 'ID de verificación inválido.';
+          break;
+        default:
+          errorMessage = 'Error al iniciar sesión con Google: ${e.message ?? e.code}';
+      }
+      throw Exception(errorMessage);
+    } on GoogleSignInException catch (e) {
+      throw _mapGoogleSignInException(e);
+    } catch (_) {
+      throw Exception('Error al iniciar sesión con Google. Por favor, intenta de nuevo.');
+    }
+  }
+
+  @override
+  Future<firebase_auth.UserCredential> linkGoogleAccount() async {
+    try {
+      final currentUser = firebaseAuth.currentUser;
+      if (currentUser == null) {
+        throw Exception('Debes iniciar sesión primero antes de vincular tu cuenta de Google');
+      }
+
+      final GoogleSignInAccount googleUser = await _authenticateWithGoogle();
+      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+
+      if (googleAuth.idToken == null) {
+        throw Exception(
+          'No se pudieron obtener las credenciales de Google. Por favor, intenta de nuevo.',
+        );
+      }
+
+      final credential = firebase_auth.GoogleAuthProvider.credential(
+        idToken: googleAuth.idToken,
+      );
+
+      return await currentUser.linkWithCredential(credential);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      String errorMessage;
+      switch (e.code) {
+        case 'provider-already-linked':
+          errorMessage = 'Esta cuenta de Google ya está vinculada a otra cuenta.';
+          break;
+        case 'credential-already-in-use':
+          errorMessage = 'Esta cuenta de Google ya está en uso por otro usuario.';
+          break;
+        case 'invalid-credential':
+          errorMessage = 'Las credenciales de Google han expirado o son inválidas. Por favor, intenta de nuevo.';
+          break;
+        case 'email-already-in-use':
+          errorMessage = 'Este email ya está asociado a otra cuenta.';
+          break;
+        default:
+          errorMessage = 'Error al vincular cuenta de Google: ${e.message ?? e.code}';
+      }
+      throw Exception(errorMessage);
+    } on GoogleSignInException catch (e) {
+      throw _mapGoogleSignInException(e);
     } catch (e) {
-      throw Exception('Error al iniciar sesión con Google: $e');
+      throw Exception(e.toString());
     }
   }
 
@@ -73,6 +155,29 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> signOut() async {
     await googleSignIn.signOut();
     await firebaseAuth.signOut();
+  }
+
+  Future<GoogleSignInAccount> _authenticateWithGoogle() async {
+    return googleSignIn.authenticate(scopeHint: const ['email', 'profile']);
+  }
+
+  Exception _mapGoogleSignInException(GoogleSignInException exception) {
+    switch (exception.code) {
+      case GoogleSignInExceptionCode.canceled:
+        return Exception('Inicio de sesión con Google cancelado');
+      case GoogleSignInExceptionCode.clientConfigurationError:
+      case GoogleSignInExceptionCode.providerConfigurationError:
+        return Exception(
+          'Configuración inválida de Google Sign-In. Verifica tus credenciales.',
+        );
+      case GoogleSignInExceptionCode.uiUnavailable:
+        return Exception('No se pudo mostrar la ventana de Google. Intenta nuevamente.');
+      default:
+        return Exception(
+          exception.description ??
+              'Error desconocido al autenticar con Google (${exception.code.name}).',
+        );
+    }
   }
 
   @override

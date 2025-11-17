@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/login_with_google_usecase.dart';
+import '../../domain/usecases/link_google_account_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
 import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
@@ -16,6 +17,11 @@ final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
 final loginWithGoogleUseCaseProvider = Provider<LoginWithGoogleUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return LoginWithGoogleUseCase(repository);
+});
+
+final linkGoogleAccountUseCaseProvider = Provider<LinkGoogleAccountUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return LinkGoogleAccountUseCase(repository);
 });
 
 final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
@@ -38,76 +44,66 @@ final updateProfileUseCaseProvider = Provider<UpdateProfileUseCase>((ref) {
   return UpdateProfileUseCase(repository);
 });
 
-final authStateProvider = StateNotifierProvider<AuthNotifier, AsyncValue<User?>>((ref) {
-  final getCurrentUserUseCase = ref.watch(getCurrentUserUseCaseProvider);
-  final logoutUseCase = ref.watch(logoutUseCaseProvider);
-  final updateProfileUseCase = ref.watch(updateProfileUseCaseProvider);
-  return AuthNotifier(getCurrentUserUseCase, logoutUseCase, updateProfileUseCase);
-});
+final authStateProvider =
+    AsyncNotifierProvider<AuthNotifier, User?>(AuthNotifier.new);
 
-class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
-  final GetCurrentUserUseCase getCurrentUserUseCase;
-  final LogoutUseCase logoutUseCase;
-  final UpdateProfileUseCase updateProfileUseCase;
+class AuthNotifier extends AsyncNotifier<User?> {
   bool _isSettingUser = false;
 
-  AuthNotifier(this.getCurrentUserUseCase, this.logoutUseCase, this.updateProfileUseCase)
-      : super(const AsyncValue.loading()) {
-    checkAuth();
+  GetCurrentUserUseCase get _getCurrentUserUseCase =>
+      ref.read(getCurrentUserUseCaseProvider);
+  LogoutUseCase get _logoutUseCase => ref.read(logoutUseCaseProvider);
+  UpdateProfileUseCase get _updateProfileUseCase =>
+      ref.read(updateProfileUseCaseProvider);
+
+  @override
+  Future<User?> build() async {
+    return _loadCurrentUser();
   }
 
-  Future<void> checkAuth() async {
-    // No sobrescribir si se está estableciendo un usuario manualmente
-    if (_isSettingUser) return;
-    
-    state = const AsyncValue.loading();
-    final result = await getCurrentUserUseCase();
-    
-    // Verificar nuevamente antes de actualizar
-    if (_isSettingUser) return;
-    
-    result.when(
-      success: (user) {
-        state = AsyncValue.data(user);
-      },
-      error: (failure) {
-        state = AsyncValue.data(null);
-      },
+  Future<User?> _loadCurrentUser() async {
+    final result = await _getCurrentUserUseCase();
+    return result.when(
+      success: (user) => user,
+      error: (_) => null,
     );
+  }
+
+  Future<void> refreshAuth() async {
+    if (_isSettingUser) return;
+    state = const AsyncValue.loading();
+    final user = await _loadCurrentUser();
+    if (_isSettingUser) return;
+    state = AsyncValue.data(user);
   }
 
   void setUser(User user) {
     _isSettingUser = true;
     state = AsyncValue.data(user);
-    // Resetear la bandera después de un breve momento
     Future.microtask(() => _isSettingUser = false);
   }
 
   Future<void> logout() async {
-    final result = await logoutUseCase();
+    final result = await _logoutUseCase();
     result.when(
-      success: (_) {
-        state = const AsyncValue.data(null);
-      },
-      error: (failure) {
-        // Mantener estado actual
-      },
+      success: (_) => state = const AsyncValue.data(null),
+      error: (_) {},
     );
   }
 
-  Future<void> updateProfile(String userId, String name, String? avatarUrl) async {
-    final result = await updateProfileUseCase(
+  Future<void> updateProfile(
+    String userId,
+    String name,
+    String? avatarUrl,
+  ) async {
+    final result = await _updateProfileUseCase(
       userId: userId,
       name: name,
       avatarUrl: avatarUrl,
     );
     result.when(
-      success: (user) {
-        setUser(user);
-      },
-      error: (failure) {
-        // Mantener estado actual, el error se manejará en la UI
-      },
+      success: (user) => setUser(user),
+      error: (_) {},
     );
   }
 }

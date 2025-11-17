@@ -31,14 +31,7 @@ final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {
 });
 
 final googleSignInProvider = Provider<GoogleSignIn>((ref) {
-  // Para web, el clientId se obtiene del meta tag en index.html
-  // Para Android/iOS, se obtiene automáticamente del google-services.json
-  // Los scopes 'email' y 'profile' son suficientes y no requieren People API
-  return GoogleSignIn(
-    scopes: ['email', 'profile'],
-    // No especificamos clientId aquí, se obtiene del meta tag en web
-    // o del google-services.json en Android/iOS
-  );
+  return GoogleSignIn.instance;
 });
 
 // SharedPreferences

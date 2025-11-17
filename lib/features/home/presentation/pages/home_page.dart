@@ -11,6 +11,7 @@ import '../../../../core/di/providers.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../auth/presentation/pages/profile_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
+import '../../../../core/widgets/ad_banner.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -53,11 +54,19 @@ class HomePage extends ConsumerWidget {
                 ],
               ),
             ),
-            body: const TabBarView(
+            body: Column(
               children: [
-                _HomeTab(),
-                GroupsListPage(),
-                SettingsPage(),
+                const Expanded(
+                  child: TabBarView(
+                    children: [
+                      _HomeTab(),
+                      GroupsListPage(),
+                      SettingsPage(),
+                    ],
+                  ),
+                ),
+                // Banner publicitario en la parte inferior
+                const AdBanner(),
               ],
             ),
           ),

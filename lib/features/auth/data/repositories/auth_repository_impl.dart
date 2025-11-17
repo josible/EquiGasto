@@ -25,7 +25,7 @@ class AuthRepositoryImpl implements AuthRepository {
       final firebaseUser = userCredential.user;
       
       if (firebaseUser == null) {
-        return const Error(AuthFailure('Error al iniciar sesión con Google'));
+        return const Error(AuthFailure('No se pudo obtener la información del usuario de Google'));
       }
 
       // Intentar obtener datos del usuario desde Firestore
@@ -65,6 +65,78 @@ class AuthRepositoryImpl implements AuthRepository {
       return Success(user);
     } catch (e) {
       String errorMessage = 'Error al iniciar sesión con Google';
+      if (e is Exception) {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      }
+      return Error(AuthFailure(errorMessage));
+    }
+  }
+
+  @override
+  Future<Result<User>> linkGoogleAccount() async {
+    try {
+      // Vincular cuenta de Google a la cuenta actual
+      final userCredential = await remoteDataSource.linkGoogleAccount();
+      final firebaseUser = userCredential.user;
+      
+      if (firebaseUser == null) {
+        return const Error(AuthFailure('No se pudo vincular la cuenta de Google'));
+      }
+
+      // Obtener o actualizar datos del usuario desde Firestore
+      User? user;
+      try {
+        user = await userRemoteDataSource.getUserById(firebaseUser.uid);
+        
+        // Actualizar avatar si viene de Google y no existe
+        if (user != null && firebaseUser.photoURL != null && user.avatarUrl == null) {
+          final updatedUser = User(
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatarUrl: firebaseUser.photoURL,
+            createdAt: user.createdAt,
+          );
+          try {
+            await userRemoteDataSource.updateUser(updatedUser);
+            user = updatedUser;
+          } catch (e) {
+            // Si falla la actualización, continuamos con el usuario existente
+          }
+        }
+      } catch (e) {
+        // Si falla Firestore, crear usuario desde Firebase Auth
+        user = null;
+      }
+      
+      // Si no existe en Firestore, crear usuario desde Firebase Auth
+      if (user == null) {
+        user = User(
+          id: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          name: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'Usuario',
+          avatarUrl: firebaseUser.photoURL,
+          createdAt: DateTime.now(),
+        );
+        
+        // Intentar crear en Firestore
+        try {
+          await userRemoteDataSource.createUser(user);
+        } catch (e) {
+          // Si falla, continuamos con el usuario de Auth
+        }
+      }
+      
+      // Guardar en cache local
+      try {
+        await localDataSource.saveUser(user);
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+      
+      return Success(user);
+    } catch (e) {
+      String errorMessage = 'Error al vincular cuenta de Google';
       if (e is Exception) {
         errorMessage = e.toString().replaceFirst('Exception: ', '');
       }
