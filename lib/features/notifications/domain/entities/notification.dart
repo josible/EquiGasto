@@ -4,6 +4,7 @@ enum NotificationType {
   expenseAdded,
   groupInvitation,
   debtSettled,
+  memberLeft,
 }
 
 class AppNotification extends Equatable {
@@ -39,5 +40,3 @@ class AppNotification extends Equatable {
         createdAt,
       ];
 }
-
-

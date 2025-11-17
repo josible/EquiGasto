@@ -7,6 +7,7 @@ import '../../../../core/constants/route_names.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/pages/groups_list_page.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
+import '../../../groups/presentation/widgets/create_group_dialog.dart';
 import '../../../../core/di/providers.dart';
 import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../auth/presentation/pages/profile_page.dart';
@@ -88,6 +89,11 @@ class _HomeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authStateProvider);
+    final groupsAsync = ref.watch(groupsListProvider);
+    final showCreateGroupCta = groupsAsync.maybeWhen(
+      data: (groups) => groups.isEmpty,
+      orElse: () => false,
+    );
 
     return authState.when(
       data: (user) {
@@ -121,6 +127,36 @@ class _HomeTab extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 24),
+            if (showCreateGroupCta)
+              Card(
+                color: Colors.blue.shade50,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        '¡Comencemos!',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Crea tu primer grupo para empezar a compartir gastos.',
+                      ),
+                      const SizedBox(height: 12),
+                      ElevatedButton.icon(
+                        onPressed: () => _showCreateGroupDialog(context),
+                        icon: const Icon(Icons.group_add),
+                        label: const Text('Crear grupo'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            if (showCreateGroupCta) const SizedBox(height: 16),
             const Text(
               'Accesos Rápidos',
               style: TextStyle(
@@ -143,7 +179,8 @@ class _HomeTab extends ConsumerWidget {
             const SizedBox(height: 8),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.group_add, size: 40, color: Colors.blue),
+                leading:
+                    const Icon(Icons.group_add, size: 40, color: Colors.blue),
                 title: const Text('Unirse a un grupo'),
                 subtitle: const Text('Ingresa el código del grupo para unirte'),
                 trailing: const Icon(Icons.arrow_forward_ios),
@@ -165,6 +202,13 @@ class _HomeTab extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
+    );
+  }
+
+  static void _showCreateGroupDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => const CreateGroupDialog(),
     );
   }
 
@@ -207,9 +251,7 @@ class _HomeTab extends ConsumerWidget {
           ),
           actions: [
             TextButton(
-              onPressed: isLoading
-                  ? null
-                  : () => Navigator.of(context).pop(),
+              onPressed: isLoading ? null : () => Navigator.of(context).pop(),
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
@@ -222,8 +264,10 @@ class _HomeTab extends ConsumerWidget {
 
                       try {
                         final groupId = codeController.text.trim();
-                        final groupsRepository = ref.read(groupsRepositoryProvider);
-                        final result = await groupsRepository.getGroupById(groupId);
+                        final groupsRepository =
+                            ref.read(groupsRepositoryProvider);
+                        final result =
+                            await groupsRepository.getGroupById(groupId);
 
                         if (!context.mounted) return;
 
@@ -232,7 +276,7 @@ class _HomeTab extends ConsumerWidget {
                             // Verificar si el usuario ya es miembro
                             final authState = ref.read(authStateProvider);
                             final user = authState.value;
-                            
+
                             if (user == null) {
                               setState(() => isLoading = false);
                               if (context.mounted) {
@@ -252,7 +296,8 @@ class _HomeTab extends ConsumerWidget {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content: Text('Ya eres miembro de este grupo'),
+                                    content:
+                                        Text('Ya eres miembro de este grupo'),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -261,7 +306,8 @@ class _HomeTab extends ConsumerWidget {
                             }
 
                             // Unirse al grupo
-                            final inviteResult = await groupsRepository.inviteUserToGroup(
+                            final inviteResult =
+                                await groupsRepository.inviteUserToGroup(
                               groupId,
                               user.email,
                             );
@@ -276,7 +322,8 @@ class _HomeTab extends ConsumerWidget {
                                 ref.invalidate(groupsListProvider);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Te has unido al grupo "${group.name}"'),
+                                    content: Text(
+                                        'Te has unido al grupo "${group.name}"'),
                                     backgroundColor: Colors.green,
                                   ),
                                 );
@@ -329,4 +376,3 @@ class _HomeTab extends ConsumerWidget {
     );
   }
 }
-

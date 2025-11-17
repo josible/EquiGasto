@@ -19,6 +19,7 @@ import '../../features/expenses/domain/repositories/expenses_repository.dart';
 import '../../features/notifications/data/datasources/notifications_local_datasource.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
+import '../../features/notifications/domain/usecases/create_notification_usecase.dart';
 import 'null_datasources.dart' as null_ds;
 
 // Firebase
@@ -35,7 +36,8 @@ final googleSignInProvider = Provider<GoogleSignIn>((ref) {
 });
 
 // SharedPreferences
-final sharedPreferencesProvider = FutureProvider<SharedPreferences>((ref) async {
+final sharedPreferencesProvider =
+    FutureProvider<SharedPreferences>((ref) async {
   return SharedPreferences.getInstance();
 });
 
@@ -69,7 +71,8 @@ final groupsLocalDataSourceProvider = Provider<GroupsLocalDataSource>((ref) {
   );
 });
 
-final expensesLocalDataSourceProvider = Provider<ExpensesLocalDataSource>((ref) {
+final expensesLocalDataSourceProvider =
+    Provider<ExpensesLocalDataSource>((ref) {
   final prefsAsync = ref.watch(sharedPreferencesProvider);
   return prefsAsync.when(
     data: (prefs) => ExpensesLocalDataSourceImpl(prefs),
@@ -78,7 +81,8 @@ final expensesLocalDataSourceProvider = Provider<ExpensesLocalDataSource>((ref) 
   );
 });
 
-final notificationsLocalDataSourceProvider = Provider<NotificationsLocalDataSource>((ref) {
+final notificationsLocalDataSourceProvider =
+    Provider<NotificationsLocalDataSource>((ref) {
   final prefsAsync = ref.watch(sharedPreferencesProvider);
   return prefsAsync.when(
     data: (prefs) => NotificationsLocalDataSourceImpl(prefs),
@@ -92,7 +96,8 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final localDataSource = ref.watch(authLocalDataSourceProvider);
   final remoteDataSource = ref.watch(authRemoteDataSourceProvider);
   final userRemoteDataSource = ref.watch(userRemoteDataSourceProvider);
-  return AuthRepositoryImpl(localDataSource, remoteDataSource, userRemoteDataSource);
+  return AuthRepositoryImpl(
+      localDataSource, remoteDataSource, userRemoteDataSource);
 });
 
 final groupsRemoteDataSourceProvider = Provider<GroupsRemoteDataSource>((ref) {
@@ -106,7 +111,8 @@ final groupsRepositoryProvider = Provider<GroupsRepository>((ref) {
   return GroupsRepositoryImpl(localDataSource, remoteDataSource);
 });
 
-final expensesRemoteDataSourceProvider = Provider<ExpensesRemoteDataSource>((ref) {
+final expensesRemoteDataSourceProvider =
+    Provider<ExpensesRemoteDataSource>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return ExpensesRemoteDataSourceImpl(firestore);
 });
@@ -117,8 +123,14 @@ final expensesRepositoryProvider = Provider<ExpensesRepository>((ref) {
   return ExpensesRepositoryImpl(localDataSource, remoteDataSource);
 });
 
-final notificationsRepositoryProvider = Provider<NotificationsRepository>((ref) {
+final notificationsRepositoryProvider =
+    Provider<NotificationsRepository>((ref) {
   final dataSource = ref.watch(notificationsLocalDataSourceProvider);
   return NotificationsRepositoryImpl(dataSource);
 });
 
+final createNotificationUseCaseProvider =
+    Provider<CreateNotificationUseCase>((ref) {
+  final repository = ref.watch(notificationsRepositoryProvider);
+  return CreateNotificationUseCase(repository);
+});

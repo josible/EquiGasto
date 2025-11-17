@@ -8,6 +8,7 @@ import '../../domain/usecases/invite_user_to_group_usecase.dart';
 import '../../domain/usecases/generate_invite_code_usecase.dart';
 import '../../domain/usecases/get_group_by_invite_code_usecase.dart';
 import '../../domain/usecases/join_group_by_code_usecase.dart';
+import '../../domain/usecases/remove_user_from_group_usecase.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -26,17 +27,20 @@ final deleteGroupUseCaseProvider = Provider<DeleteGroupUseCase>((ref) {
   return DeleteGroupUseCase(repository);
 });
 
-final inviteUserToGroupUseCaseProvider = Provider<InviteUserToGroupUseCase>((ref) {
+final inviteUserToGroupUseCaseProvider =
+    Provider<InviteUserToGroupUseCase>((ref) {
   final repository = ref.watch(groupsRepositoryProvider);
   return InviteUserToGroupUseCase(repository);
 });
 
-final generateInviteCodeUseCaseProvider = Provider<GenerateInviteCodeUseCase>((ref) {
+final generateInviteCodeUseCaseProvider =
+    Provider<GenerateInviteCodeUseCase>((ref) {
   final repository = ref.watch(groupsRepositoryProvider);
   return GenerateInviteCodeUseCase(repository);
 });
 
-final getGroupByInviteCodeUseCaseProvider = Provider<GetGroupByInviteCodeUseCase>((ref) {
+final getGroupByInviteCodeUseCaseProvider =
+    Provider<GetGroupByInviteCodeUseCase>((ref) {
   final repository = ref.watch(groupsRepositoryProvider);
   return GetGroupByInviteCodeUseCase(repository);
 });
@@ -46,10 +50,17 @@ final joinGroupByCodeUseCaseProvider = Provider<JoinGroupByCodeUseCase>((ref) {
   return JoinGroupByCodeUseCase(repository);
 });
 
-final groupByInviteCodeProvider = FutureProvider.family<Group, String>((ref, inviteCode) async {
+final removeUserFromGroupUseCaseProvider =
+    Provider<RemoveUserFromGroupUseCase>((ref) {
+  final repository = ref.watch(groupsRepositoryProvider);
+  return RemoveUserFromGroupUseCase(repository);
+});
+
+final groupByInviteCodeProvider =
+    FutureProvider.family<Group, String>((ref, inviteCode) async {
   final useCase = ref.watch(getGroupByInviteCodeUseCaseProvider);
   final result = await useCase(inviteCode);
-  
+
   return result.when(
     success: (group) => group,
     error: (failure) => throw Exception(failure.message),
@@ -73,13 +84,13 @@ final groupsListProvider = FutureProvider<List<Group>>((ref) async {
   );
 });
 
-final groupProvider = FutureProvider.family<Group, String>((ref, groupId) async {
+final groupProvider =
+    FutureProvider.family<Group, String>((ref, groupId) async {
   final repository = ref.watch(groupsRepositoryProvider);
   final result = await repository.getGroupById(groupId);
-  
+
   return result.when(
     success: (group) => group,
     error: (failure) => throw Exception(failure.message),
   );
 });
-

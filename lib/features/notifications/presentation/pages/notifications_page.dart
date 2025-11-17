@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/entities/notification.dart';
 import '../../domain/repositories/notifications_repository.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+
+final _userNotificationsProvider =
+    FutureProvider.family<List<AppNotification>, String>((ref, userId) async {
+  final notificationsRepository = ref.watch(notificationsRepositoryProvider);
+  final result = await notificationsRepository.getUserNotifications(userId);
+  return result.when(
+    success: (notifications) => notifications,
+    error: (_) => [],
+  );
+});
 
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
@@ -19,76 +30,56 @@ class NotificationsPage extends ConsumerWidget {
       );
     }
 
-    final notificationsRepository = ref.watch(notificationsRepositoryProvider);
-    final notificationsAsync = FutureProvider((ref) async {
-      final result = await notificationsRepository.getUserNotifications(user.id);
-      return result.when(
-        success: (notifications) => notifications,
-        error: (_) => [],
-      );
-    });
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notificaciones'),
       ),
-      body: ref.watch(notificationsAsync).when(
-        data: (notifications) {
-          if (notifications.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.notifications_none, size: 80, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    'No tienes notificaciones',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                ],
-              ),
-            );
-          }
+      body: ref.watch(_userNotificationsProvider(user.id)).when(
+            data: (notifications) {
+              if (notifications.isEmpty) {
+                return const _EmptyNotifications();
+              }
 
-          return ListView.builder(
-            padding: const EdgeInsets.all(16.0),
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              return Card(
-                color: notification.isRead ? null : Colors.blue.shade50,
-                child: ListTile(
-                  leading: Icon(
-                    _getIconForType(notification.type),
-                    color: notification.isRead ? Colors.grey : Colors.blue,
-                  ),
-                  title: Text(
-                    notification.title,
-                    style: TextStyle(
-                      fontWeight: notification.isRead
-                          ? FontWeight.normal
-                          : FontWeight.bold,
+              return ListView.builder(
+                padding: const EdgeInsets.all(16.0),
+                itemCount: notifications.length,
+                itemBuilder: (context, index) {
+                  final notification = notifications[index];
+                  return Card(
+                    color: notification.isRead ? null : Colors.blue.shade50,
+                    child: ListTile(
+                      leading: Icon(
+                        _getIconForType(notification.type),
+                        color: notification.isRead ? Colors.grey : Colors.blue,
+                      ),
+                      title: Text(
+                        notification.title,
+                        style: TextStyle(
+                          fontWeight: notification.isRead
+                              ? FontWeight.normal
+                              : FontWeight.bold,
+                        ),
+                      ),
+                      subtitle: Text(notification.message),
+                      trailing: Text(
+                        '${notification.createdAt.day}/${notification.createdAt.month}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                      onTap: () async {
+                        if (!notification.isRead) {
+                          await notificationsRepository
+                              .markAsRead(notification.id);
+                          ref.invalidate(_userNotificationsProvider(user.id));
+                        }
+                      },
                     ),
-                  ),
-                  subtitle: Text(notification.message),
-                  trailing: Text(
-                    '${notification.createdAt.day}/${notification.createdAt.month}',
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  onTap: () async {
-                    if (!notification.isRead) {
-                      await notificationsRepository.markAsRead(notification.id);
-                      ref.invalidate(notificationsAsync);
-                    }
-                  },
-                ),
+                  );
+                },
               );
             },
-          );
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => Center(child: Text('Error: $error')),
-      ),
+            loading: () => const _EmptyNotifications(),
+            error: (error, stack) => const _EmptyNotifications(),
+          ),
     );
   }
 
@@ -106,3 +97,23 @@ class NotificationsPage extends ConsumerWidget {
   }
 }
 
+class _EmptyNotifications extends StatelessWidget {
+  const _EmptyNotifications();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.notifications_none, size: 80, color: Colors.grey),
+          SizedBox(height: 16),
+          Text(
+            'Sin notificaciones',
+            style: TextStyle(fontSize: 18, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+}

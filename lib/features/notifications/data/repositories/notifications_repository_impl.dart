@@ -10,7 +10,8 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   NotificationsRepositoryImpl(this.localDataSource);
 
   @override
-  Future<Result<List<AppNotification>>> getUserNotifications(String userId) async {
+  Future<Result<List<AppNotification>>> getUserNotifications(
+      String userId) async {
     try {
       final notifications = await localDataSource.getUserNotifications(userId);
       return Success(notifications);
@@ -48,6 +49,14 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
       return Error(ServerFailure('Error al obtener conteo: $e'));
     }
   }
+
+  @override
+  Future<Result<void>> createNotification(AppNotification notification) async {
+    try {
+      await localDataSource.saveNotification(notification);
+      return const Success(null);
+    } catch (e) {
+      return Error(ServerFailure('Error al guardar notificación: $e'));
+    }
+  }
 }
-
-

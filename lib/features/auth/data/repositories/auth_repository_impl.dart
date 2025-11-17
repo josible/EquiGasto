@@ -291,8 +291,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<Result<User?>> getCurrentUser() async {
+    User? cachedUser;
     try {
-      User? cachedUser;
       try {
         cachedUser = await localDataSource.getCurrentUser();
       } catch (_) {
@@ -359,6 +359,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
       return Success(newUser);
     } catch (e) {
+      if (cachedUser != null) {
+        return Success(cachedUser);
+      }
       return Error(AuthFailure('Error al obtener usuario: $e'));
     }
   }

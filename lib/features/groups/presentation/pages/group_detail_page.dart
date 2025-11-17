@@ -6,10 +6,13 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
+import 'package:uuid/uuid.dart';
 import '../../../../core/constants/route_names.dart';
+import '../../../../core/di/providers.dart';
 import '../../../expenses/presentation/providers/expenses_provider.dart';
 import '../../../expenses/domain/entities/debt.dart';
 import '../../../expenses/domain/entities/expense.dart';
+import '../../../notifications/domain/entities/notification.dart';
 import '../providers/groups_provider.dart';
 import '../providers/group_members_provider.dart';
 import '../providers/group_balance_provider.dart';
@@ -33,6 +36,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
   late TabController _tabController;
   int _currentTabIndex = 0;
   bool _isDeletingGroup = false;
+  bool _isLeavingGroup = false;
 
   @override
   void initState() {
@@ -65,6 +69,9 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
       body: groupAsync.when(
         data: (group) {
           final canDeleteGroup = currentUser?.id == group.createdBy;
+          final canLeaveGroup = currentUser != null &&
+              group.memberIds.contains(currentUser.id) &&
+              currentUser.id != group.createdBy;
           return NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
@@ -94,6 +101,27 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                         onPressed: _isDeletingGroup
                             ? null
                             : () => _confirmDeleteGroup(context, group),
+                      ),
+                    if (canLeaveGroup)
+                      IconButton(
+                        icon: _isLeavingGroup
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.logout),
+                        tooltip: 'Salir del grupo',
+                        onPressed: _isLeavingGroup || currentUser == null
+                            ? null
+                            : () => _confirmLeaveGroup(
+                                  context,
+                                  group,
+                                  currentUser,
+                                ),
                       ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
@@ -226,6 +254,94 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
         );
       },
     );
+  }
+
+  Future<void> _confirmLeaveGroup(
+    BuildContext context,
+    group,
+    User currentUser,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Salir del grupo'),
+        content: const Text(
+          'Ya no recibirás actualizaciones de este grupo. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Salir'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLeavingGroup = true);
+
+    final removeUseCase = ref.read(removeUserFromGroupUseCaseProvider);
+    final result = await removeUseCase(group.id, currentUser.id);
+
+    if (!mounted) return;
+
+    setState(() => _isLeavingGroup = false);
+
+    await result.when(
+      success: (_) async {
+        await _notifyMembersUserLeft(group, currentUser);
+        ref.invalidate(groupsListProvider);
+        ref.invalidate(groupProvider(group.id));
+        ref.invalidate(groupMembersProvider(group.memberIds));
+        ref.invalidate(groupExpensesProvider(group.id));
+        ref.invalidate(groupDebtsProvider(group.id));
+        ref.invalidate(groupBalanceProvider(group.id));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Has salido del grupo'),
+            backgroundColor: Colors.blue,
+          ),
+        );
+        context.go(RouteNames.groups);
+      },
+      error: (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _notifyMembersUserLeft(group, User user) async {
+    final createNotificationUseCase =
+        ref.read(createNotificationUseCaseProvider);
+    for (final memberId in group.memberIds) {
+      if (memberId == user.id) continue;
+      final notification = AppNotification(
+        id: const Uuid().v4(),
+        userId: memberId,
+        type: NotificationType.memberLeft,
+        title: 'Un miembro salió del grupo',
+        message: '${user.name} ha salido de ${group.name}',
+        data: {
+          'groupId': group.id,
+          'userId': user.id,
+        },
+        isRead: false,
+        createdAt: DateTime.now(),
+      );
+      final result = await createNotificationUseCase(notification);
+      result.when(success: (_) {}, error: (_) {});
+    }
   }
 
   void _showShareDialog(BuildContext context, group) {

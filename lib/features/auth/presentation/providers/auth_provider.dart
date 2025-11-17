@@ -19,7 +19,8 @@ final loginWithGoogleUseCaseProvider = Provider<LoginWithGoogleUseCase>((ref) {
   return LoginWithGoogleUseCase(repository);
 });
 
-final linkGoogleAccountUseCaseProvider = Provider<LinkGoogleAccountUseCase>((ref) {
+final linkGoogleAccountUseCaseProvider =
+    Provider<LinkGoogleAccountUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return LinkGoogleAccountUseCase(repository);
 });
@@ -62,6 +63,12 @@ class AuthNotifier extends AsyncNotifier<User?> {
   }
 
   Future<User?> _loadCurrentUser() async {
+    try {
+      await ref.watch(sharedPreferencesProvider.future);
+    } catch (_) {
+      // Si SharedPreferences falla, continuamos igualmente
+    }
+
     final result = await _getCurrentUserUseCase();
     return result.when(
       success: (user) => user,
@@ -107,4 +114,3 @@ class AuthNotifier extends AsyncNotifier<User?> {
     );
   }
 }
-
