@@ -5,16 +5,19 @@ import '../../domain/repositories/auth_repository.dart';
 import '../datasources/auth_local_datasource.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../datasources/user_remote_datasource.dart';
+import '../../../../core/services/credentials_storage.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource localDataSource;
   final AuthRemoteDataSource remoteDataSource;
   final UserRemoteDataSource userRemoteDataSource;
+  final CredentialsStorage credentialsStorage;
 
   AuthRepositoryImpl(
     this.localDataSource,
     this.remoteDataSource,
     this.userRemoteDataSource,
+    this.credentialsStorage,
   );
 
   @override
@@ -25,8 +28,11 @@ class AuthRepositoryImpl implements AuthRepository {
       final firebaseUser = userCredential.user;
 
       if (firebaseUser == null) {
-        return const Error(AuthFailure(
-            'No se pudo obtener la información del usuario de Google'));
+        return const Error(
+          AuthFailure(
+            'No se pudo obtener la información del usuario de Google',
+          ),
+        );
       }
 
       // Intentar obtener datos del usuario desde Firestore
@@ -84,7 +90,8 @@ class AuthRepositoryImpl implements AuthRepository {
 
       if (firebaseUser == null) {
         return const Error(
-            AuthFailure('No se pudo vincular la cuenta de Google'));
+          AuthFailure('No se pudo vincular la cuenta de Google'),
+        );
       }
 
       // Obtener o actualizar datos del usuario desde Firestore
@@ -205,6 +212,11 @@ class AuthRepositoryImpl implements AuthRepository {
         // Si falla el cache local, no es crítico
       }
 
+      await _cacheCredentialsIfNeeded(
+        email: email,
+        password: password,
+      );
+
       return Success(user);
     } catch (e) {
       return Error(AuthFailure(e.toString()));
@@ -226,8 +238,11 @@ class AuthRepositoryImpl implements AuthRepository {
       final firebaseUser = userCredential.user;
 
       if (firebaseUser == null) {
-        return const Error(AuthFailure(
-            'Error al registrar usuario: No se obtuvo información del usuario'));
+        return const Error(
+          AuthFailure(
+            'Error al registrar usuario: No se obtuvo información del usuario',
+          ),
+        );
       }
 
       // Actualizar el perfil con el nombre
@@ -265,6 +280,11 @@ class AuthRepositoryImpl implements AuthRepository {
         // El usuario ya está registrado en Firebase Auth y Firestore
       }
 
+      await _cacheCredentialsIfNeeded(
+        email: email,
+        password: password,
+      );
+
       return Success(user);
     } catch (e) {
       // Extraer el mensaje del error
@@ -283,6 +303,7 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       await remoteDataSource.signOut();
       await localDataSource.clearUser();
+      await credentialsStorage.clearCredentials();
       return const Success(null);
     } catch (e) {
       return Error(AuthFailure('Error al cerrar sesión: $e'));
@@ -302,6 +323,10 @@ class AuthRepositoryImpl implements AuthRepository {
       final firebaseUser = remoteDataSource.getCurrentFirebaseUser();
 
       if (firebaseUser == null) {
+        final autoLoginUser = await _tryAutoLoginWithStoredCredentials();
+        if (autoLoginUser != null) {
+          return Success(autoLoginUser);
+        }
         if (cachedUser != null) {
           return Success(cachedUser);
         }
@@ -420,6 +445,35 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Success(null);
     } catch (e) {
       return Error(AuthFailure('Error al enviar correo de recuperación: $e'));
+    }
+  }
+
+  Future<void> _cacheCredentialsIfNeeded({
+    String? email,
+    String? password,
+  }) async {
+    if (email == null || password == null) return;
+    await credentialsStorage.saveCredentials(
+      email: email,
+      password: password,
+    );
+  }
+
+  Future<User?> _tryAutoLoginWithStoredCredentials() async {
+    try {
+      final credentials = await credentialsStorage.readCredentials();
+      if (credentials == null) {
+        return null;
+      }
+
+      final result = await login(credentials.email, credentials.password);
+      if (result is Success<User>) {
+        return result.data;
+      }
+      await credentialsStorage.clearCredentials();
+      return null;
+    } catch (_) {
+      return null;
     }
   }
 }

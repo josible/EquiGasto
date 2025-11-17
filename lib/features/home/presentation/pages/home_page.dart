@@ -1,17 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/route_names.dart';
 import '../../../../core/di/providers.dart';
-import '../../../../core/services/local_auth_service.dart';
 import '../../../../core/widgets/ad_banner.dart';
-import '../../../auth/presentation/pages/profile_page.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/pages/groups_list_page.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../groups/presentation/widgets/create_group_dialog.dart';
-import '../../../notifications/presentation/pages/notifications_page.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {

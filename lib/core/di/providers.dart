@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../features/auth/data/datasources/auth_local_datasource.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/datasources/user_remote_datasource.dart';
@@ -23,6 +24,7 @@ import '../../features/notifications/domain/repositories/notifications_repositor
 import '../../features/notifications/domain/usecases/create_notification_usecase.dart';
 import 'null_datasources.dart' as null_ds;
 import '../services/local_auth_service.dart';
+import '../services/credentials_storage.dart';
 
 // Firebase
 final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
@@ -36,6 +38,15 @@ final localAuthenticationProvider = Provider<LocalAuthentication>((ref) {
 final localAuthServiceProvider = Provider<LocalAuthService>((ref) {
   final localAuth = ref.watch(localAuthenticationProvider);
   return LocalAuthService(localAuth);
+});
+
+final flutterSecureStorageProvider = Provider<FlutterSecureStorage>((ref) {
+  return const FlutterSecureStorage();
+});
+
+final credentialsStorageProvider = Provider<CredentialsStorage>((ref) {
+  final secureStorage = ref.watch(flutterSecureStorageProvider);
+  return CredentialsStorage(secureStorage);
 });
 
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {
@@ -107,8 +118,13 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final localDataSource = ref.watch(authLocalDataSourceProvider);
   final remoteDataSource = ref.watch(authRemoteDataSourceProvider);
   final userRemoteDataSource = ref.watch(userRemoteDataSourceProvider);
+  final credentialsStorage = ref.watch(credentialsStorageProvider);
   return AuthRepositoryImpl(
-      localDataSource, remoteDataSource, userRemoteDataSource);
+    localDataSource,
+    remoteDataSource,
+    userRemoteDataSource,
+    credentialsStorage,
+  );
 });
 
 final groupsRemoteDataSourceProvider = Provider<GroupsRemoteDataSource>((ref) {
