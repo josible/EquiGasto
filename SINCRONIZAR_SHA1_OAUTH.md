@@ -67,3 +67,4 @@ B1:03:D8:3B:09:1D:8B:66:89:B1:94:F7:49:2E:E3:40:F9:9F:01:69
 Este es el mismo SHA-1 que ya tienes en Firebase Console. Solo necesitas agregarlo también en el OAuth Client ID de Google Cloud Console.
 
 
+

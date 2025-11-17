@@ -71,3 +71,4 @@ El Client ID del OAuth Client ID de Android debería ser uno de estos:
 Ambos deberían aparecer en tu `google-services.json`.
 
 
+

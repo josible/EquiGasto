@@ -78,3 +78,4 @@ En tu `google-services.json`, el Client ID de Android con el SHA-1 de release es
 Este debería aparecer en el OAuth Client ID de Android en Google Cloud Console.
 
 
+
