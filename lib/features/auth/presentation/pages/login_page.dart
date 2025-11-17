@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/constants/route_names.dart';
+import '../../../../core/di/providers.dart';
+import '../../domain/entities/user.dart';
 import '../providers/auth_provider.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
@@ -16,6 +18,29 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _hasNavigated = false;
+  bool _autoLoginAttempted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    ref.listen<AsyncValue<User?>>(authStateProvider, (previous, next) {
+      next.when(
+        data: (user) {
+          if (user != null) {
+            _navigateToHome();
+          } else {
+            _hasNavigated = false;
+          }
+        },
+        loading: () {},
+        error: (_, __) {},
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _attemptAutoLoginFromStorage();
+    });
+  }
 
   @override
   void dispose() {
@@ -24,15 +49,20 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     super.dispose();
   }
 
-  Future<void> _handleLogin() async {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _handleLogin({
+    String? emailOverride,
+    String? passwordOverride,
+  }) async {
+    if (emailOverride == null || passwordOverride == null) {
+      if (!_formKey.currentState!.validate()) return;
+    }
     if (_isLoading) return; // Evitar múltiples clics
 
     setState(() => _isLoading = true);
 
     try {
-      final email = _emailController.text.trim();
-      final password = _passwordController.text;
+      final email = (emailOverride ?? _emailController.text).trim();
+      final password = passwordOverride ?? _passwordController.text;
 
       if (password.isEmpty) {
         if (mounted) {
@@ -168,6 +198,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authStateProvider);
+
+    if (authState.isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       body: SafeArea(
         child: Center(
@@ -245,7 +285,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.white),
                             ),
                           )
                         : const Text('Iniciar Sesión'),
@@ -262,5 +303,27 @@ class _LoginPageState extends ConsumerState<LoginPage> {
       ),
     );
   }
-}
 
+  void _navigateToHome() {
+    if (_hasNavigated || !mounted) return;
+    _hasNavigated = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.go(RouteNames.home);
+    });
+  }
+
+  Future<void> _attemptAutoLoginFromStorage() async {
+    if (_autoLoginAttempted) return;
+    _autoLoginAttempted = true;
+    final credentialsStorage = ref.read(credentialsStorageProvider);
+    final savedCredentials = await credentialsStorage.readCredentials();
+    if (!mounted || savedCredentials == null) return;
+    _emailController.text = savedCredentials.email;
+    setState(() {});
+    await _handleLogin(
+      emailOverride: savedCredentials.email,
+      passwordOverride: savedCredentials.password,
+    );
+  }
+}
