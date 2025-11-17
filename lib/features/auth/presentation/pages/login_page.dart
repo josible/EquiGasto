@@ -87,62 +87,83 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     }
   }
 
-  Future<void> _handleGoogleLogin() async {
-    if (_isLoading) return;
+  Future<void> _showForgotPasswordDialog() async {
+    final emailController =
+        TextEditingController(text: _emailController.text.trim());
+    bool isSending = false;
 
-    setState(() => _isLoading = true);
-
-    try {
-      final loginWithGoogleUseCase = ref.read(loginWithGoogleUseCaseProvider);
-      final result = await loginWithGoogleUseCase();
-
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      result.when(
-        success: (user) {
-          ref.read(authStateProvider.notifier).setUser(user);
-          if (mounted) {
-            context.go(RouteNames.home);
-          }
-        },
-        error: (failure) {
-          // No mostrar error si el usuario canceló
-          if (failure.message.contains('cancelado')) {
-            return;
-          }
-          
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(failure.message),
-                backgroundColor: Colors.red,
-                duration: const Duration(seconds: 4),
-              ),
-            );
-          }
-        },
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-      
-      // No mostrar error si el usuario canceló
-      final errorString = e.toString();
-      if (errorString.contains('cancelado')) {
-        return;
-      }
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error al iniciar sesión con Google. Por favor, intenta de nuevo.'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 4),
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Recuperar contraseña'),
+          content: TextField(
+            controller: emailController,
+            keyboardType: TextInputType.emailAddress,
+            decoration: const InputDecoration(
+              labelText: 'Email',
+              hintText: 'usuario@ejemplo.com',
+            ),
           ),
-        );
-      }
-    }
+          actions: [
+            TextButton(
+              onPressed: isSending ? null : () => Navigator.of(context).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: isSending
+                  ? null
+                  : () async {
+                      final email = emailController.text.trim();
+                      if (email.isEmpty || !email.contains('@')) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Ingrese un email válido'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      setState(() => isSending = true);
+                      final resetUseCase =
+                          ref.read(resetPasswordUseCaseProvider);
+                      final result = await resetUseCase(email);
+                      setState(() => isSending = false);
+                      if (!mounted) return;
+                      result.when(
+                        success: (_) {
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Hemos enviado un correo para restablecer tu contraseña.',
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        error: (failure) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(failure.message),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        },
+                      );
+                    },
+              child: isSending
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Enviar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -205,6 +226,13 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       return null;
                     },
                   ),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _isLoading ? null : _showForgotPasswordDialog,
+                      child: const Text('¿Olvidaste la contraseña?'),
+                    ),
+                  ),
                   const SizedBox(height: 32),
                   ElevatedButton(
                     onPressed: _isLoading ? null : _handleLogin,
@@ -222,32 +250,6 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           )
                         : const Text('Iniciar Sesión'),
                   ),
-                  const SizedBox(height: 16),
-                  const Row(
-                    children: [
-                      Expanded(child: Divider()),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        child: Text('o'),
-                      ),
-                      Expanded(child: Divider()),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _isLoading ? null : _handleGoogleLogin,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      side: const BorderSide(color: Colors.grey),
-                    ),
-                    icon: const Icon(
-                      Icons.g_mobiledata,
-                      size: 24,
-                      color: Colors.redAccent,
-                    ),
-                    label: const Text('Continuar con Google'),
-                  ),
-                  const SizedBox(height: 16),
                   TextButton(
                     onPressed: () => context.go(RouteNames.register),
                     child: const Text('¿No tienes cuenta? Regístrate'),

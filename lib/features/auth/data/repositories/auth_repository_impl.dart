@@ -409,4 +409,17 @@ class AuthRepositoryImpl implements AuthRepository {
       return Error(AuthFailure('Error al actualizar perfil: $e'));
     }
   }
+
+  @override
+  Future<Result<void>> resetPassword(String email) async {
+    try {
+      if (email.isEmpty || !email.contains('@')) {
+        return const Error(ValidationFailure('Ingrese un email válido'));
+      }
+      await remoteDataSource.sendPasswordResetEmail(email);
+      return const Success(null);
+    } catch (e) {
+      return Error(AuthFailure('Error al enviar correo de recuperación: $e'));
+    }
+  }
 }

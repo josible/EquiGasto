@@ -9,6 +9,7 @@ abstract class AuthRemoteDataSource {
   Future<void> signOut();
   firebase_auth.User? getCurrentFirebaseUser();
   Stream<firebase_auth.User?> getAuthStateChanges();
+  Future<void> sendPasswordResetEmail(String email);
 }
 
 class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
@@ -188,6 +189,15 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Stream<firebase_auth.User?> getAuthStateChanges() {
     return firebaseAuth.authStateChanges();
+  }
+
+  @override
+  Future<void> sendPasswordResetEmail(String email) async {
+    try {
+      await firebaseAuth.sendPasswordResetEmail(email: email);
+    } on firebase_auth.FirebaseAuthException catch (e) {
+      throw _handleAuthException(e);
+    }
   }
 
   Exception _handleAuthException(firebase_auth.FirebaseAuthException e) {

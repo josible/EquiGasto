@@ -30,6 +30,8 @@ class NotificationsPage extends ConsumerWidget {
       );
     }
 
+    final notificationsRepository = ref.watch(notificationsRepositoryProvider);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notificaciones'),
@@ -67,8 +69,8 @@ class NotificationsPage extends ConsumerWidget {
                       ),
                       onTap: () async {
                         if (!notification.isRead) {
-                          await notificationsRepository
-                              .markAsRead(notification.id);
+                          await notificationsRepository.markAsRead(
+                              notification.id);
                           ref.invalidate(_userNotificationsProvider(user.id));
                         }
                       },
