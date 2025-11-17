@@ -415,7 +415,6 @@ class _ShareGroupDialog extends StatelessWidget {
 
   static const String _storeUrl =
       'https://play.google.com/store/apps/details?id=com.sire.equigasto';
-  static const String _deepLinkPrefix = 'equigasto://app/join';
 
   const _ShareGroupDialog({
     required this.groupName,
@@ -426,10 +425,10 @@ class _ShareGroupDialog extends StatelessWidget {
   String get _shareMessage => '''
 ¡Hola! $inviterName te ha invitado al grupo "$groupName" en EquiGasto.
 
-Si ya tienes la app instalada, toca este enlace para unirte al instante:
-$_deepLinkPrefix/$code
+Si ya tienes la app instalada, abre EquiGasto y pega este código:
+$code
 
-¿Aún no tienes EquiGasto? Instálala aquí y usa el código $code para unirte:
+¿Aún no tienes EquiGasto? Instálala aquí y usa el mismo código para unirte:
 $_storeUrl
 '''
       .trim();
@@ -616,6 +615,7 @@ $_storeUrl
                 letterSpacing: 2,
               ),
             ),
+            const SizedBox(height: 24),
             if (isMobile) ...[
               const SizedBox(height: 24),
               const Divider(),
