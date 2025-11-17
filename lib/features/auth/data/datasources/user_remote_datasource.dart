@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/user.dart';
 
@@ -45,18 +46,29 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
     try {
       if (userIds.isEmpty) return [];
       
+      print('🔍 getUsersByIds - Obteniendo ${userIds.length} usuarios: $userIds');
+      debugPrint('🔍 getUsersByIds - Obteniendo ${userIds.length} usuarios: $userIds');
+      
       // Firestore permite hasta 10 documentos en una consulta 'in'
       // Si hay más, necesitamos hacer múltiples consultas
       final List<User> users = [];
       for (var i = 0; i < userIds.length; i += 10) {
         final batch = userIds.skip(i).take(10).toList();
+        print('🔍 getUsersByIds - Procesando batch: $batch');
+        debugPrint('🔍 getUsersByIds - Procesando batch: $batch');
         final futures = batch.map((id) => getUserById(id));
         final results = await Future.wait(futures);
         users.addAll(results.whereType<User>());
+        print('🔍 getUsersByIds - Batch completado, usuarios encontrados: ${results.whereType<User>().length}');
+        debugPrint('🔍 getUsersByIds - Batch completado, usuarios encontrados: ${results.whereType<User>().length}');
       }
       
+      print('✅ getUsersByIds - Total usuarios obtenidos: ${users.length}');
+      debugPrint('✅ getUsersByIds - Total usuarios obtenidos: ${users.length}');
       return users;
     } catch (e) {
+      print('❌ getUsersByIds - Error: $e');
+      debugPrint('❌ getUsersByIds - Error: $e');
       throw Exception('Error al obtener usuarios: $e');
     }
   }

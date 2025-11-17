@@ -241,17 +241,35 @@ class GroupsRepositoryImpl implements GroupsRepository {
   @override
   Future<Result<Group>> getGroupByInviteCode(String inviteCode) async {
     try {
+      print('🔍 getGroupByInviteCode - Buscando código: $inviteCode');
       debugPrint('🔍 getGroupByInviteCode - Buscando código: $inviteCode');
       final groupId = await remoteDataSource.getGroupIdByInviteCode(inviteCode);
+      print('🔍 getGroupByInviteCode - groupId encontrado: $groupId');
       debugPrint('🔍 getGroupByInviteCode - groupId encontrado: $groupId');
       if (groupId == null) {
+        print('❌ getGroupByInviteCode - Código no encontrado en Firestore');
         debugPrint('❌ getGroupByInviteCode - Código no encontrado en Firestore');
         return const Error(ValidationFailure('Código de invitación inválido'));
       }
 
+      print('🔍 getGroupByInviteCode - Obteniendo grupo con ID: $groupId');
+      debugPrint('🔍 getGroupByInviteCode - Obteniendo grupo con ID: $groupId');
       final groupResult = await getGroupById(groupId);
+      
+      groupResult.when(
+        success: (group) {
+          print('✅ getGroupByInviteCode - Grupo obtenido: ${group.id} - ${group.name}');
+          debugPrint('✅ getGroupByInviteCode - Grupo obtenido: ${group.id} - ${group.name}');
+        },
+        error: (failure) {
+          print('❌ getGroupByInviteCode - Error al obtener grupo: ${failure.message}');
+          debugPrint('❌ getGroupByInviteCode - Error al obtener grupo: ${failure.message}');
+        },
+      );
+      
       return groupResult;
     } catch (e) {
+      print('❌ getGroupByInviteCode - Excepción: $e');
       debugPrint('❌ getGroupByInviteCode - Excepción: $e');
       return Error(ServerFailure('Error al obtener grupo por código: $e'));
     }

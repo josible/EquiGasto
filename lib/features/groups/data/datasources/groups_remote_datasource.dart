@@ -114,6 +114,7 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
   @override
   Future<String> generateInviteCode(String groupId) async {
     try {
+      debugPrint('🔍 generateInviteCode - Generando código para groupId: $groupId');
       // Verificar si ya existe un código para este grupo
       final inviteQuery = await firestore
           .collection('group_invites')
@@ -122,8 +123,13 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
           .get();
 
       if (inviteQuery.docs.isNotEmpty) {
-        return inviteQuery.docs.first.id;
+        final existingCode = inviteQuery.docs.first.id.toUpperCase();
+        print('✅ generateInviteCode - Código existente encontrado: $existingCode');
+        debugPrint('✅ generateInviteCode - Código existente encontrado: $existingCode');
+        return existingCode;
       }
+      
+      debugPrint('🔍 generateInviteCode - No existe código, generando uno nuevo');
 
       // Generar un código único de 8 caracteres
       // Usar los últimos caracteres del groupId (mínimo 8) o rellenar
@@ -145,13 +151,18 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
         code = '${code.substring(0, 6)}${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 2)}';
       }
       
-      // Guardar en Firestore
-      await firestore.collection('group_invites').doc(code).set({
+      // Guardar en Firestore (asegurarse de que el código esté en mayúsculas)
+      final codeUpper = code.toUpperCase();
+      print('🔍 generateInviteCode - Guardando código en Firestore: $codeUpper');
+      debugPrint('🔍 generateInviteCode - Guardando código en Firestore: $codeUpper');
+      await firestore.collection('group_invites').doc(codeUpper).set({
         'groupId': groupId,
         'createdAt': Timestamp.now(),
       });
-
-      return code;
+      print('✅ generateInviteCode - Código guardado exitosamente: $codeUpper');
+      debugPrint('✅ generateInviteCode - Código guardado exitosamente: $codeUpper');
+      
+      return codeUpper;
     } catch (e) {
       throw Exception('Error al generar código de invitación: $e');
     }
@@ -160,19 +171,41 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
   @override
   Future<String?> getGroupIdByInviteCode(String inviteCode) async {
     try {
-      final codeUpper = inviteCode.toUpperCase();
+      final codeUpper = inviteCode.trim().toUpperCase();
+      print('🔍 getGroupIdByInviteCode - Buscando en Firestore código: $codeUpper');
       debugPrint('🔍 getGroupIdByInviteCode - Buscando en Firestore código: $codeUpper');
+      
+      // Intentar buscar directamente por el ID del documento
       final doc = await firestore.collection('group_invites').doc(codeUpper).get();
+      print('🔍 getGroupIdByInviteCode - Documento existe: ${doc.exists}');
       debugPrint('🔍 getGroupIdByInviteCode - Documento existe: ${doc.exists}');
+      
       if (!doc.exists) {
-        debugPrint('❌ getGroupIdByInviteCode - Documento no existe en Firestore');
+        print('❌ getGroupIdByInviteCode - Documento no existe en Firestore para código: $codeUpper');
+        debugPrint('❌ getGroupIdByInviteCode - Documento no existe en Firestore para código: $codeUpper');
+        
+        // Intentar buscar también en minúsculas por si acaso
+        final docLower = await firestore.collection('group_invites').doc(inviteCode.trim().toLowerCase()).get();
+        if (docLower.exists) {
+          print('✅ getGroupIdByInviteCode - Encontrado en minúsculas');
+          debugPrint('✅ getGroupIdByInviteCode - Encontrado en minúsculas');
+          final data = docLower.data();
+          final groupId = data?['groupId'] as String?;
+          print('🔍 getGroupIdByInviteCode - groupId extraído: $groupId');
+          debugPrint('🔍 getGroupIdByInviteCode - groupId extraído: $groupId');
+          return groupId;
+        }
+        
         return null;
       }
+      
       final data = doc.data();
       final groupId = data?['groupId'] as String?;
-      debugPrint('🔍 getGroupIdByInviteCode - groupId extraído: $groupId');
+      print('✅ getGroupIdByInviteCode - groupId extraído: $groupId');
+      debugPrint('✅ getGroupIdByInviteCode - groupId extraído: $groupId');
       return groupId;
     } catch (e) {
+      print('❌ getGroupIdByInviteCode - Excepción: $e');
       debugPrint('❌ getGroupIdByInviteCode - Excepción: $e');
       throw Exception('Error al obtener grupo por código: $e');
     }

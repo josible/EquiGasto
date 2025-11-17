@@ -406,22 +406,50 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     final inviter = members.isNotEmpty ? members.first : null;
 
     // Obtener o generar el código de invitación
+    print('🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
     debugPrint('🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
     final generateCodeUseCase = ref.read(generateInviteCodeUseCaseProvider);
     final codeResult = await generateCodeUseCase(widget.groupId);
 
     final inviteCode = codeResult.when(
       success: (code) {
-        debugPrint('✅ _showShareDialog - Código generado: $code');
+        print('✅ _showShareDialog - Código generado: $code (longitud: ${code.length})');
+        debugPrint('✅ _showShareDialog - Código generado: $code (longitud: ${code.length})');
+        // Validar que el código tenga una longitud razonable
+        if (code.length > 20 || code.length < 4) {
+          print('❌ _showShareDialog - Código generado tiene longitud inválida: ${code.length}');
+          debugPrint('❌ _showShareDialog - Código generado tiene longitud inválida: ${code.length}');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Error al generar código de invitación. Por favor, intenta de nuevo.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+          return null;
+        }
         return code;
       },
       error: (failure) {
+        print('❌ _showShareDialog - Error al generar código: ${failure.message}');
         debugPrint('❌ _showShareDialog - Error al generar código: ${failure.message}');
-        return widget.groupId; // Fallback al groupId si falla
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error al generar código: ${failure.message}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        return null;
       },
     );
 
-    if (!context.mounted) return;
+    if (!context.mounted || inviteCode == null) return;
+
+    print('✅ _showShareDialog - Mostrando diálogo con código: $inviteCode');
+    debugPrint('✅ _showShareDialog - Mostrando diálogo con código: $inviteCode');
 
     showDialog(
       context: context,

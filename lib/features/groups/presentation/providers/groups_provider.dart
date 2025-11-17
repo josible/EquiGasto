@@ -58,22 +58,49 @@ final removeUserFromGroupUseCaseProvider =
 
 final groupByInviteCodeProvider =
     FutureProvider.family<Group, String>((ref, inviteCode) async {
-  debugPrint(
-      '🔍 groupByInviteCodeProvider - Buscando grupo con código: $inviteCode');
-  final useCase = ref.watch(getGroupByInviteCodeUseCaseProvider);
-  final result = await useCase(inviteCode);
+  print('🔍 groupByInviteCodeProvider - Buscando grupo con código: $inviteCode (longitud: ${inviteCode.length})');
+  debugPrint('🔍 groupByInviteCodeProvider - Buscando grupo con código: $inviteCode (longitud: ${inviteCode.length})');
+  
+  // Validar que el código tenga una longitud razonable (los códigos son de 8 caracteres)
+  if (inviteCode.length > 20 || inviteCode.length < 4) {
+    print('❌ groupByInviteCodeProvider - Código inválido (longitud: ${inviteCode.length})');
+    debugPrint('❌ groupByInviteCodeProvider - Código inválido (longitud: ${inviteCode.length})');
+    throw Exception('Código de invitación inválido. El código debe tener entre 4 y 20 caracteres.');
+  }
+  
+  try {
+    // Usar ref.read en lugar de ref.watch para evitar recargas infinitas
+    final useCase = ref.read(getGroupByInviteCodeUseCaseProvider);
+    
+    // Agregar timeout de 5 segundos para evitar que se quede colgado
+    final result = await Future(() => useCase(inviteCode)).timeout(
+      const Duration(seconds: 5),
+      onTimeout: () {
+        print('❌ groupByInviteCodeProvider - Timeout después de 5 segundos');
+        debugPrint('❌ groupByInviteCodeProvider - Timeout después de 5 segundos');
+        throw Exception('Tiempo de espera agotado. El código podría no existir.');
+      },
+    );
 
-  return result.when(
-    success: (group) {
-      debugPrint(
-          '✅ groupByInviteCodeProvider - Grupo encontrado: ${group.id} - ${group.name}');
-      return group;
-    },
-    error: (failure) {
-      debugPrint('❌ groupByInviteCodeProvider - Error: ${failure.message}');
-      throw Exception(failure.message);
-    },
-  );
+    return result.when(
+      success: (group) {
+        print('✅ groupByInviteCodeProvider - Grupo encontrado: ${group.id} - ${group.name}');
+        debugPrint('✅ groupByInviteCodeProvider - Grupo encontrado: ${group.id} - ${group.name}');
+        return group;
+      },
+      error: (failure) {
+        print('❌ groupByInviteCodeProvider - Error: ${failure.message}');
+        debugPrint('❌ groupByInviteCodeProvider - Error: ${failure.message}');
+        // Lanzar una excepción con el mensaje de error para que el provider entre en estado de error
+        throw Exception(failure.message);
+      },
+    );
+  } catch (e) {
+    print('❌ groupByInviteCodeProvider - Excepción: $e');
+    debugPrint('❌ groupByInviteCodeProvider - Excepción: $e');
+    // Re-lanzar la excepción para que el provider entre en estado de error y no se recargue
+    rethrow;
+  }
 });
 
 final groupsListProvider = FutureProvider<List<Group>>((ref) async {
