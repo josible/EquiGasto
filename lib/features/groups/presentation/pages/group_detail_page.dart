@@ -86,7 +86,8 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                     IconButton(
                       icon: const Icon(Icons.share),
                       tooltip: 'Compartir grupo',
-                      onPressed: () => _showShareDialog(context, group),
+                      onPressed: () =>
+                          _showShareDialog(context, group, currentUser),
                     ),
                     if (canDeleteGroup)
                       IconButton(
@@ -390,13 +391,18 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     }
   }
 
-  void _showShareDialog(BuildContext context, group) {
+  void _showShareDialog(
+    BuildContext context,
+    group,
+    User? inviter,
+  ) {
     // Mostrar diálogo directamente con el ID del grupo como código
     showDialog(
       context: context,
       builder: (dialogContext) => _ShareGroupDialog(
         groupName: group.name,
         code: widget.groupId,
+        inviterName: inviter?.name ?? 'Un miembro de EquiGasto',
       ),
     );
   }
@@ -405,13 +411,26 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
 class _ShareGroupDialog extends StatelessWidget {
   final String groupName;
   final String code;
+  final String inviterName;
+
+  static const String _storeUrl =
+      'https://play.google.com/store/apps/details?id=com.sire.equigasto';
 
   const _ShareGroupDialog({
     required this.groupName,
     required this.code,
+    required this.inviterName,
   });
 
-  String get _shareMessage => code;
+  String get _shareMessage => '''
+¡Hola! $inviterName te ha invitado al grupo "$groupName" en EquiGasto.
+
+Este es el código del grupo: $code
+
+Descarga la app y únete desde aquí:
+$_storeUrl
+'''
+      .trim();
 
   Future<void> _shareToWhatsApp(BuildContext context) async {
     print('[COMPARTIR] Iniciando compartir a WhatsApp');
