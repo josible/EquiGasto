@@ -23,9 +23,10 @@ class AuthRepositoryImpl implements AuthRepository {
       // Autenticar con Google
       final userCredential = await remoteDataSource.signInWithGoogle();
       final firebaseUser = userCredential.user;
-      
+
       if (firebaseUser == null) {
-        return const Error(AuthFailure('No se pudo obtener la información del usuario de Google'));
+        return const Error(AuthFailure(
+            'No se pudo obtener la información del usuario de Google'));
       }
 
       // Intentar obtener datos del usuario desde Firestore
@@ -36,17 +37,19 @@ class AuthRepositoryImpl implements AuthRepository {
         // Si falla Firestore (permisos, etc.), continuamos con datos de Auth
         user = null;
       }
-      
+
       // Si no existe en Firestore o falló, crear usuario desde Firebase Auth
       if (user == null) {
         user = User(
           id: firebaseUser.uid,
           email: firebaseUser.email ?? '',
-          name: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'Usuario',
+          name: firebaseUser.displayName ??
+              firebaseUser.email?.split('@')[0] ??
+              'Usuario',
           avatarUrl: firebaseUser.photoURL,
           createdAt: DateTime.now(),
         );
-        
+
         // Intentar crear en Firestore (no crítico si falla)
         try {
           await userRemoteDataSource.createUser(user);
@@ -54,14 +57,14 @@ class AuthRepositoryImpl implements AuthRepository {
           // Si falla, continuamos con el usuario de Auth
         }
       }
-      
+
       // Guardar en cache local (no crítico si falla)
       try {
         await localDataSource.saveUser(user);
       } catch (e) {
         // Si falla el cache, no es crítico
       }
-      
+
       return Success(user);
     } catch (e) {
       String errorMessage = 'Error al iniciar sesión con Google';
@@ -78,18 +81,21 @@ class AuthRepositoryImpl implements AuthRepository {
       // Vincular cuenta de Google a la cuenta actual
       final userCredential = await remoteDataSource.linkGoogleAccount();
       final firebaseUser = userCredential.user;
-      
+
       if (firebaseUser == null) {
-        return const Error(AuthFailure('No se pudo vincular la cuenta de Google'));
+        return const Error(
+            AuthFailure('No se pudo vincular la cuenta de Google'));
       }
 
       // Obtener o actualizar datos del usuario desde Firestore
       User? user;
       try {
         user = await userRemoteDataSource.getUserById(firebaseUser.uid);
-        
+
         // Actualizar avatar si viene de Google y no existe
-        if (user != null && firebaseUser.photoURL != null && user.avatarUrl == null) {
+        if (user != null &&
+            firebaseUser.photoURL != null &&
+            user.avatarUrl == null) {
           final updatedUser = User(
             id: user.id,
             email: user.email,
@@ -108,17 +114,19 @@ class AuthRepositoryImpl implements AuthRepository {
         // Si falla Firestore, crear usuario desde Firebase Auth
         user = null;
       }
-      
+
       // Si no existe en Firestore, crear usuario desde Firebase Auth
       if (user == null) {
         user = User(
           id: firebaseUser.uid,
           email: firebaseUser.email ?? '',
-          name: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'Usuario',
+          name: firebaseUser.displayName ??
+              firebaseUser.email?.split('@')[0] ??
+              'Usuario',
           avatarUrl: firebaseUser.photoURL,
           createdAt: DateTime.now(),
         );
-        
+
         // Intentar crear en Firestore
         try {
           await userRemoteDataSource.createUser(user);
@@ -126,14 +134,14 @@ class AuthRepositoryImpl implements AuthRepository {
           // Si falla, continuamos con el usuario de Auth
         }
       }
-      
+
       // Guardar en cache local
       try {
         await localDataSource.saveUser(user);
       } catch (e) {
         // Si falla el cache, no es crítico
       }
-      
+
       return Success(user);
     } catch (e) {
       String errorMessage = 'Error al vincular cuenta de Google';
@@ -155,9 +163,10 @@ class AuthRepositoryImpl implements AuthRepository {
       }
 
       // Autenticar con Firebase
-      final userCredential = await remoteDataSource.signInWithEmailAndPassword(email, password);
+      final userCredential =
+          await remoteDataSource.signInWithEmailAndPassword(email, password);
       final firebaseUser = userCredential.user;
-      
+
       if (firebaseUser == null) {
         return const Error(AuthFailure('Error al iniciar sesión'));
       }
@@ -170,7 +179,7 @@ class AuthRepositoryImpl implements AuthRepository {
         // Si falla Firestore (permisos, etc.), continuamos con datos de Auth
         user = null;
       }
-      
+
       // Si no existe en Firestore o falló, crear usuario desde Firebase Auth
       if (user == null) {
         user = User(
@@ -180,7 +189,7 @@ class AuthRepositoryImpl implements AuthRepository {
           avatarUrl: firebaseUser.photoURL,
           createdAt: DateTime.now(),
         );
-        
+
         // Intentar crear en Firestore, pero no fallar si hay error de permisos
         try {
           await userRemoteDataSource.createUser(user);
@@ -203,18 +212,22 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<User>> register(String email, String password, String name) async {
+  Future<Result<User>> register(
+      String email, String password, String name) async {
     try {
       if (email.isEmpty || password.isEmpty || name.isEmpty) {
-        return const Error(ValidationFailure('Todos los campos son requeridos'));
+        return const Error(
+            ValidationFailure('Todos los campos son requeridos'));
       }
 
       // Crear usuario en Firebase Authentication
-      final userCredential = await remoteDataSource.createUserWithEmailAndPassword(email, password);
+      final userCredential = await remoteDataSource
+          .createUserWithEmailAndPassword(email, password);
       final firebaseUser = userCredential.user;
-      
+
       if (firebaseUser == null) {
-        return const Error(AuthFailure('Error al registrar usuario: No se obtuvo información del usuario'));
+        return const Error(AuthFailure(
+            'Error al registrar usuario: No se obtuvo información del usuario'));
       }
 
       // Actualizar el perfil con el nombre
@@ -243,7 +256,7 @@ class AuthRepositoryImpl implements AuthRepository {
         // Continuamos con el registro exitoso
         // En producción, deberías revisar las reglas de Firestore
       }
-      
+
       // Guardar en cache local (opcional, no crítico si falla)
       try {
         await localDataSource.saveUser(user);
@@ -279,10 +292,19 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<Result<User?>> getCurrentUser() async {
     try {
+      User? cachedUser;
+      try {
+        cachedUser = await localDataSource.getCurrentUser();
+      } catch (_) {
+        cachedUser = null;
+      }
+
       final firebaseUser = remoteDataSource.getCurrentFirebaseUser();
-      
+
       if (firebaseUser == null) {
-        // Limpiar cache local si no hay usuario en Firebase
+        if (cachedUser != null) {
+          return Success(cachedUser);
+        }
         await localDataSource.clearUser();
         return const Success(null);
       }
@@ -295,7 +317,7 @@ class AuthRepositoryImpl implements AuthRepository {
         // Si falla Firestore (permisos, etc.), continuamos con datos de Auth
         user = null;
       }
-      
+
       if (user != null) {
         // Actualizar cache local (opcional, no crítico si falla)
         try {
@@ -306,29 +328,35 @@ class AuthRepositoryImpl implements AuthRepository {
         return Success(user);
       }
 
-      // Si no existe en Firestore o falló, crear registro básico desde Firebase Auth
+      // Si no existe en Firestore o falló, intentar con cache antes de crear uno nuevo
+      if (cachedUser != null && cachedUser.id == firebaseUser.uid) {
+        return Success(cachedUser);
+      }
+
       final newUser = User(
         id: firebaseUser.uid,
         email: firebaseUser.email ?? '',
-        name: firebaseUser.displayName ?? firebaseUser.email?.split('@')[0] ?? 'Usuario',
+        name: firebaseUser.displayName ??
+            firebaseUser.email?.split('@')[0] ??
+            'Usuario',
         avatarUrl: firebaseUser.photoURL,
         createdAt: DateTime.now(),
       );
-      
+
       // Intentar crear en Firestore, pero no fallar si hay error
       try {
         await userRemoteDataSource.createUser(newUser);
       } catch (e) {
         // Si falla Firestore, continuamos igual
       }
-      
+
       // Intentar guardar en cache local
       try {
         await localDataSource.saveUser(newUser);
       } catch (e) {
         // Si falla el cache local, no es crítico
       }
-      
+
       return Success(newUser);
     } catch (e) {
       return Error(AuthFailure('Error al obtener usuario: $e'));
@@ -336,7 +364,8 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Result<User>> updateProfile(String userId, String name, String? avatarUrl) async {
+  Future<Result<User>> updateProfile(
+      String userId, String name, String? avatarUrl) async {
     try {
       final firebaseUser = remoteDataSource.getCurrentFirebaseUser();
       if (firebaseUser == null || firebaseUser.uid != userId) {
@@ -368,16 +397,13 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       await userRemoteDataSource.updateUser(updatedUser);
-      
+
       // Actualizar cache local
       await localDataSource.saveUser(updatedUser);
-      
+
       return Success(updatedUser);
     } catch (e) {
       return Error(AuthFailure('Error al actualizar perfil: $e'));
     }
   }
 }
-
-
-

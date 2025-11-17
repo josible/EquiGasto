@@ -1,6 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'dart:io' show Platform;
+import '../../../../core/constants/route_names.dart';
 import '../../../expenses/presentation/providers/expenses_provider.dart';
 import '../../../expenses/domain/entities/debt.dart';
 import '../providers/groups_provider.dart';
@@ -8,11 +14,6 @@ import '../providers/group_members_provider.dart';
 import '../providers/group_balance_provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'dart:io' show Platform;
 
 class GroupDetailPage extends ConsumerStatefulWidget {
   final String groupId;
@@ -30,6 +31,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _currentTabIndex = 0;
+  bool _isDeletingGroup = false;
 
   @override
   void initState() {
@@ -56,10 +58,12 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
   @override
   Widget build(BuildContext context) {
     final groupAsync = ref.watch(groupProvider(widget.groupId));
+    final currentUser = ref.watch(authStateProvider).value;
 
     return Scaffold(
       body: groupAsync.when(
         data: (group) {
+          final canDeleteGroup = currentUser?.id == group.createdBy;
           return NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
@@ -73,6 +77,23 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                       tooltip: 'Compartir grupo',
                       onPressed: () => _showShareDialog(context, group),
                     ),
+                    if (canDeleteGroup)
+                      IconButton(
+                        icon: _isDeletingGroup
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Icon(Icons.delete_outline),
+                        tooltip: 'Eliminar grupo',
+                        onPressed: _isDeletingGroup
+                            ? null
+                            : () => _confirmDeleteGroup(context, group),
+                      ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
                     title: Text(group.name),
@@ -127,7 +148,8 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
           // Mostrar FAB solo en la pestaña de gastos
           if (_currentTabIndex == 0) {
             return FloatingActionButton(
-              onPressed: () => context.push('/groups/${widget.groupId}/expenses/add'),
+              onPressed: () =>
+                  context.push('/groups/${widget.groupId}/expenses/add'),
               child: const Icon(Icons.add),
             );
           }
@@ -137,6 +159,71 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
         loading: () => const SizedBox.shrink(),
         error: (_, __) => const SizedBox.shrink(),
       ),
+    );
+  }
+
+  Future<void> _confirmDeleteGroup(BuildContext context, group) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar grupo'),
+        content: const Text(
+          'Esta acción eliminará el grupo y todos sus datos. ¿Deseas continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isDeletingGroup = true);
+
+    final deleteUseCase = ref.read(deleteGroupUseCaseProvider);
+    final result = await deleteUseCase(group.id);
+
+    if (!mounted) return;
+
+    setState(() => _isDeletingGroup = false);
+
+    result.when(
+      success: (_) {
+        ref.invalidate(groupsListProvider);
+        ref.invalidate(groupProvider(group.id));
+        ref.invalidate(groupExpensesProvider(group.id));
+        ref.invalidate(groupDebtsProvider(group.id));
+        ref.invalidate(groupBalanceProvider(group.id));
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Grupo eliminado correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go(RouteNames.home);
+        }
+      },
+      error: (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
     );
   }
 
@@ -166,8 +253,9 @@ class _ShareGroupDialog extends StatelessWidget {
   Future<void> _shareToWhatsApp(BuildContext context) async {
     print('[COMPARTIR] Iniciando compartir a WhatsApp');
     final message = Uri.encodeComponent(_shareMessage);
-    print('[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
-    
+    print(
+        '[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
+
     try {
       // Intentar primero con el esquema nativo de WhatsApp
       final nativeUrl = Uri.parse('whatsapp://send?text=$message');
@@ -190,7 +278,7 @@ class _ShareGroupDialog extends StatelessWidget {
         print('[COMPARTIR] Error al intentar URL nativa: $e');
         // Si falla, intentar con la URL web
       }
-      
+
       // Si el esquema nativo no funciona, intentar con la URL web
       final webUrl = Uri.parse('https://wa.me/?text=$message');
       print('[COMPARTIR] Intentando abrir URL web: $webUrl');
@@ -208,7 +296,8 @@ class _ShareGroupDialog extends StatelessWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No se pudo abrir WhatsApp. Intenta compartir con otra aplicación.'),
+              content: Text(
+                  'No se pudo abrir WhatsApp. Intenta compartir con otra aplicación.'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -231,8 +320,9 @@ class _ShareGroupDialog extends StatelessWidget {
   Future<void> _shareToTelegram(BuildContext context) async {
     print('[COMPARTIR] Iniciando compartir a Telegram');
     final message = Uri.encodeComponent(_shareMessage);
-    print('[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
-    
+    print(
+        '[COMPARTIR] Mensaje codificado: ${message.substring(0, message.length > 100 ? 100 : message.length)}...');
+
     try {
       // Intentar primero con el esquema nativo de Telegram
       final nativeUrl = Uri.parse('tg://msg?text=$message');
@@ -255,9 +345,10 @@ class _ShareGroupDialog extends StatelessWidget {
         print('[COMPARTIR] Error al intentar URL nativa: $e');
         // Si falla, intentar con la URL web
       }
-      
+
       // Si el esquema nativo no funciona, intentar con la URL web
-      final webUrl = Uri.parse('https://t.me/share/url?text=${Uri.encodeComponent(code)}');
+      final webUrl =
+          Uri.parse('https://t.me/share/url?text=${Uri.encodeComponent(code)}');
       print('[COMPARTIR] Intentando abrir URL web: $webUrl');
       final canLaunchWeb = await canLaunchUrl(webUrl);
       print('[COMPARTIR] canLaunchUrl(webUrl) = $canLaunchWeb');
@@ -273,7 +364,8 @@ class _ShareGroupDialog extends StatelessWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('No se pudo abrir Telegram. Intenta compartir con otra aplicación.'),
+              content: Text(
+                  'No se pudo abrir Telegram. Intenta compartir con otra aplicación.'),
               backgroundColor: Colors.orange,
             ),
           );
@@ -295,7 +387,8 @@ class _ShareGroupDialog extends StatelessWidget {
 
   Future<void> _shareGeneric(BuildContext context) async {
     print('[COMPARTIR] Iniciando compartir genérico');
-    print('[COMPARTIR] Mensaje: ${_shareMessage.substring(0, _shareMessage.length > 100 ? 100 : _shareMessage.length)}...');
+    print(
+        '[COMPARTIR] Mensaje: ${_shareMessage.substring(0, _shareMessage.length > 100 ? 100 : _shareMessage.length)}...');
     try {
       print('[COMPARTIR] Llamando a Share.share...');
       await Share.share(_shareMessage);
@@ -435,14 +528,14 @@ class _ExpensesTab extends ConsumerWidget {
     return groupAsync.when(
       data: (group) {
         final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
-        
+
         return membersAsync.when(
           data: (members) {
             final membersMap = <String, User>{};
             for (final member in members) {
               membersMap[member.id] = member;
             }
-            
+
             return RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(groupExpensesProvider(groupId));
@@ -462,8 +555,9 @@ class _ExpensesTab extends ConsumerWidget {
                     itemBuilder: (context, index) {
                       final expense = expenses[index];
                       final paidByUser = membersMap[expense.paidBy];
-                      final paidByName = paidByUser?.name ?? 'Usuario ${expense.paidBy.substring(0, 8)}';
-                      
+                      final paidByName = paidByUser?.name ??
+                          'Usuario ${expense.paidBy.substring(0, 8)}';
+
                       return Card(
                         child: ListTile(
                           leading: const Icon(Icons.receipt),
@@ -471,15 +565,18 @@ class _ExpensesTab extends ConsumerWidget {
                           subtitle: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text('€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}'),
+                              Text(
+                                  '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}'),
                               const SizedBox(height: 4),
                               Row(
                                 children: [
-                                  const Icon(Icons.person, size: 14, color: Colors.grey),
+                                  const Icon(Icons.person,
+                                      size: 14, color: Colors.grey),
                                   const SizedBox(width: 4),
                                   Text(
                                     'Pagado por: $paidByName',
-                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    style: const TextStyle(
+                                        fontSize: 12, color: Colors.grey),
                                   ),
                                 ],
                               ),
@@ -530,7 +627,8 @@ class _ExpensesTab extends ConsumerWidget {
                     child: ListTile(
                       leading: const Icon(Icons.receipt),
                       title: Text(expense.description),
-                      subtitle: Text('€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}'),
+                      subtitle: Text(
+                          '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}'),
                       trailing: Text(
                         '${expense.date.day}/${expense.date.month}/${expense.date.year}',
                       ),
@@ -559,7 +657,7 @@ class _MembersTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
-    
+
     return Column(
       children: [
         Padding(
@@ -578,20 +676,22 @@ class _MembersTab extends ConsumerWidget {
               for (final member in members) {
                 membersMap[member.id] = member;
               }
-              
+
               return ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 itemCount: group.memberIds.length,
                 itemBuilder: (context, index) {
                   final memberId = group.memberIds[index];
                   final member = membersMap[memberId];
-                  final displayName = member != null ? member.name : 'Miembro ${index + 1}';
-                  final initial = member != null 
-                      ? member.name[0].toUpperCase() 
+                  final displayName =
+                      member != null ? member.name : 'Miembro ${index + 1}';
+                  final initial = member != null
+                      ? member.name[0].toUpperCase()
                       : memberId.substring(0, 1).toUpperCase();
-                  
+
                   // Calcular balance del miembro
-                  final expensesAsync = ref.watch(groupExpensesProvider(groupId));
+                  final expensesAsync =
+                      ref.watch(groupExpensesProvider(groupId));
                   return expensesAsync.when(
                     data: (expenses) {
                       double memberBalance = 0.0;
@@ -603,15 +703,15 @@ class _MembersTab extends ConsumerWidget {
                           memberBalance -= expense.splitAmounts[memberId]!;
                         }
                       }
-                      
+
                       final isPositive = memberBalance > 0.01;
                       final isNegative = memberBalance < -0.01;
-                      final balanceColor = isPositive 
-                          ? Colors.green 
-                          : isNegative 
-                              ? Colors.red 
+                      final balanceColor = isPositive
+                          ? Colors.green
+                          : isNegative
+                              ? Colors.red
                               : Colors.grey;
-                      
+
                       return Card(
                         child: ListTile(
                           leading: Stack(
@@ -639,9 +739,11 @@ class _MembersTab extends ConsumerWidget {
                             ],
                           ),
                           title: Text(displayName),
-                          subtitle: member != null ? Text(member.email) : Text(memberId),
+                          subtitle: member != null
+                              ? Text(member.email)
+                              : Text(memberId),
                           trailing: Text(
-                            isPositive 
+                            isPositive
                                 ? '+€${memberBalance.toStringAsFixed(2).replaceAll('.', ',')}'
                                 : isNegative
                                     ? '-€${(-memberBalance).toStringAsFixed(2).replaceAll('.', ',')}'
@@ -682,7 +784,9 @@ class _MembersTab extends ConsumerWidget {
                           ],
                         ),
                         title: Text(displayName),
-                        subtitle: member != null ? Text(member.email) : Text(memberId),
+                        subtitle: member != null
+                            ? Text(member.email)
+                            : Text(memberId),
                       ),
                     ),
                     error: (_, __) => Card(
@@ -712,7 +816,9 @@ class _MembersTab extends ConsumerWidget {
                           ],
                         ),
                         title: Text(displayName),
-                        subtitle: member != null ? Text(member.email) : Text(memberId),
+                        subtitle: member != null
+                            ? Text(member.email)
+                            : Text(memberId),
                       ),
                     ),
                   );
@@ -770,7 +876,7 @@ class _MembersTab extends ConsumerWidget {
   ) async {
     final emailController = TextEditingController();
     final formKey = GlobalKey<FormState>();
-    
+
     try {
       await showDialog(
         context: context,
@@ -798,7 +904,8 @@ class _InviteMemberDialog extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<_InviteMemberDialog> createState() => _InviteMemberDialogState();
+  ConsumerState<_InviteMemberDialog> createState() =>
+      _InviteMemberDialogState();
 }
 
 class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
@@ -918,18 +1025,18 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
     final ref = this.ref;
     final debtsAsync = ref.watch(groupDebtsProvider(widget.groupId));
     final groupAsync = ref.watch(groupProvider(widget.groupId));
-    
+
     return groupAsync.when(
       data: (group) {
         final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
-        
+
         return membersAsync.when(
           data: (members) {
             final membersMap = <String, User>{};
             for (final member in members) {
               membersMap[member.id] = member;
             }
-            
+
             return debtsAsync.when(
               data: (debts) {
                 if (debts.isEmpty) {
@@ -944,7 +1051,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                     ),
                   );
                 }
-                
+
                 return ListView.builder(
                   padding: const EdgeInsets.all(16.0),
                   itemCount: debts.length,
@@ -952,10 +1059,12 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                     final debt = debts[index];
                     final fromUser = membersMap[debt.fromUserId];
                     final toUser = membersMap[debt.toUserId];
-                    
-                    final fromName = fromUser?.name ?? 'Usuario ${debt.fromUserId.substring(0, 8)}';
-                    final toName = toUser?.name ?? 'Usuario ${debt.toUserId.substring(0, 8)}';
-                    
+
+                    final fromName = fromUser?.name ??
+                        'Usuario ${debt.fromUserId.substring(0, 8)}';
+                    final toName = toUser?.name ??
+                        'Usuario ${debt.toUserId.substring(0, 8)}';
+
                     return Card(
                       margin: const EdgeInsets.only(bottom: 12.0),
                       child: ListTile(
@@ -973,7 +1082,8 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                           ),
                         ),
                         trailing: IconButton(
-                          icon: const Icon(Icons.check_circle, color: Colors.green),
+                          icon: const Icon(Icons.check_circle,
+                              color: Colors.green),
                           onPressed: () => _showSettleDebtDialog(
                             context,
                             ref,
@@ -1015,7 +1125,8 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                         backgroundColor: Colors.orange,
                         child: Icon(Icons.arrow_forward, color: Colors.white),
                       ),
-                      title: Text('Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}'),
+                      title: Text(
+                          'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}'),
                       subtitle: Text(
                         '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
                         style: const TextStyle(
@@ -1051,7 +1162,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
   ) async {
     final authState = ref.read(authStateProvider);
     final currentUser = authState.value;
-    
+
     if (currentUser == null) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1063,7 +1174,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       }
       return;
     }
-    
+
     // Solo el deudor puede liquidar su deuda
     if (currentUser.id != debt.fromUserId) {
       if (context.mounted) {
@@ -1076,7 +1187,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       }
       return;
     }
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1099,9 +1210,9 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
         ],
       ),
     );
-    
+
     if (confirmed != true || !context.mounted) return;
-    
+
     // Mostrar loading
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -1122,7 +1233,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
         duration: Duration(seconds: 2),
       ),
     );
-    
+
     final settleUseCase = ref.read(settleDebtUseCaseProvider);
     final result = await settleUseCase(
       fromUserId: debt.fromUserId,
@@ -1130,9 +1241,9 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       groupId: debt.groupId,
       amount: debt.amount,
     );
-    
+
     if (!context.mounted) return;
-    
+
     result.when(
       success: (_) {
         // Invalidar providers para refrescar
@@ -1140,7 +1251,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
         ref.invalidate(groupDebtsProvider(groupId));
         ref.invalidate(groupBalanceProvider(groupId));
         ref.invalidate(groupsListProvider);
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Deuda liquidada exitosamente'),
@@ -1160,4 +1271,3 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
     );
   }
 }
-
