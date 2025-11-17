@@ -18,7 +18,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     try {
       // Obtener desde Firestore
       final expenses = await remoteDataSource.getGroupExpenses(groupId);
-      
+
       // Guardar en cache local (opcional)
       try {
         for (final expense in expenses) {
@@ -27,7 +27,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
       } catch (e) {
         // Si falla el cache, no es crítico
       }
-      
+
       return Success(expenses);
     } catch (e) {
       return Error(ServerFailure('Error al obtener gastos: $e'));
@@ -51,7 +51,8 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
         return const Error(ValidationFailure('El monto debe ser mayor a 0'));
       }
       if (splitAmounts.isEmpty) {
-        return const Error(ValidationFailure('Debe haber al menos un participante'));
+        return const Error(
+            ValidationFailure('Debe haber al menos un participante'));
       }
 
       final expense = Expense(
@@ -67,14 +68,14 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
 
       // Guardar en Firestore
       await remoteDataSource.createExpense(expense);
-      
+
       // Guardar en cache local (opcional)
       try {
         await localDataSource.saveExpense(expense);
       } catch (e) {
         // Si falla el cache, no es crítico
       }
-      
+
       return Success(expense);
     } catch (e) {
       return Error(ServerFailure('Error al agregar gasto: $e'));
@@ -86,17 +87,65 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     try {
       // Eliminar de Firestore
       await remoteDataSource.deleteExpense(expenseId);
-      
+
       // Eliminar de cache local (opcional)
       try {
         await localDataSource.deleteExpense(expenseId);
       } catch (e) {
         // Si falla el cache, no es crítico
       }
-      
+
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al eliminar gasto: $e'));
+    }
+  }
+
+  @override
+  Future<Result<Expense>> updateExpense({
+    required String expenseId,
+    required String groupId,
+    required String paidBy,
+    required String description,
+    required double amount,
+    required DateTime date,
+    required Map<String, double> splitAmounts,
+    required DateTime createdAt,
+  }) async {
+    try {
+      if (description.isEmpty) {
+        return const Error(ValidationFailure('La descripción es requerida'));
+      }
+      if (amount <= 0) {
+        return const Error(ValidationFailure('El monto debe ser mayor a 0'));
+      }
+      if (splitAmounts.isEmpty) {
+        return const Error(
+            ValidationFailure('Debe haber al menos un participante'));
+      }
+
+      final updatedExpense = Expense(
+        id: expenseId,
+        groupId: groupId,
+        paidBy: paidBy,
+        description: description,
+        amount: amount,
+        date: date,
+        splitAmounts: splitAmounts,
+        createdAt: createdAt,
+      );
+
+      await remoteDataSource.updateExpense(updatedExpense);
+
+      try {
+        await localDataSource.saveExpense(updatedExpense);
+      } catch (e) {
+        // Si falla el cache, no es crítico
+      }
+
+      return Success(updatedExpense);
+    } catch (e) {
+      return Error(ServerFailure('Error al actualizar gasto: $e'));
     }
   }
 
@@ -117,9 +166,9 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     try {
       final allExpenses = await localDataSource.getAllExpenses();
       final debts = _calculateDebts(allExpenses);
-      final userDebts = debts.where((debt) => 
-        debt.fromUserId == userId || debt.toUserId == userId
-      ).toList();
+      final userDebts = debts
+          .where((debt) => debt.fromUserId == userId || debt.toUserId == userId)
+          .toList();
       return Success(userDebts);
     } catch (e) {
       return Error(ServerFailure('Error al obtener deudas: $e'));
@@ -127,26 +176,27 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   }
 
   @override
-  Future<Result<double>> getUserBalanceInGroup(String userId, String groupId) async {
+  Future<Result<double>> getUserBalanceInGroup(
+      String userId, String groupId) async {
     try {
       // Obtener gastos del grupo desde Firestore
       final expenses = await remoteDataSource.getGroupExpenses(groupId);
-      
+
       // Calcular balance neto del usuario
       double balance = 0.0;
-      
+
       for (final expense in expenses) {
         // Si el usuario pagó, recibe dinero (positivo)
         if (expense.paidBy == userId) {
           balance += expense.amount;
         }
-        
+
         // Si el usuario participó, debe su parte (negativo)
         if (expense.splitAmounts.containsKey(userId)) {
           balance -= expense.splitAmounts[userId]!;
         }
       }
-      
+
       return Success(balance);
     } catch (e) {
       return Error(ServerFailure('Error al calcular balance: $e'));
@@ -154,7 +204,8 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
   }
 
   @override
-  Future<Result<void>> settleDebt(String fromUserId, String toUserId, String groupId, double amount) async {
+  Future<Result<void>> settleDebt(
+      String fromUserId, String toUserId, String groupId, double amount) async {
     try {
       if (amount <= 0) {
         return const Error(ValidationFailure('El monto debe ser mayor a 0'));
@@ -177,14 +228,14 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
 
       // Guardar el gasto compensatorio en Firestore
       await remoteDataSource.createExpense(settlementExpense);
-      
+
       // Guardar en cache local (opcional)
       try {
         await localDataSource.saveExpense(settlementExpense);
       } catch (e) {
         // Si falla el cache, no es crítico
       }
-      
+
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al liquidar deuda: $e'));
@@ -199,7 +250,8 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
 
     for (final expense in expenses) {
       // El pagador recibe dinero (positivo)
-      netBalances[expense.paidBy] = (netBalances[expense.paidBy] ?? 0) + expense.amount;
+      netBalances[expense.paidBy] =
+          (netBalances[expense.paidBy] ?? 0) + expense.amount;
 
       // Los participantes deben dinero (negativo)
       for (final entry in expense.splitAmounts.entries) {
@@ -228,20 +280,25 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     // Asignar deudas de deudores a acreedores
     final debtorsList = debtors.entries.toList();
     final creditorsList = creditors.entries.toList();
-    
+
     int debtorIndex = 0;
     int creditorIndex = 0;
 
-    while (debtorIndex < debtorsList.length && creditorIndex < creditorsList.length) {
+    while (debtorIndex < debtorsList.length &&
+        creditorIndex < creditorsList.length) {
       final debtor = debtorsList[debtorIndex];
       final creditor = creditorsList[creditorIndex];
 
-      final amount = debtor.value < creditor.value ? debtor.value : creditor.value;
+      final amount =
+          debtor.value < creditor.value ? debtor.value : creditor.value;
 
       // Encontrar el grupo más relevante
       final relevantExpense = expenses.firstWhere(
-        (e) => (e.paidBy == creditor.key && e.splitAmounts.containsKey(debtor.key)) ||
-               (e.paidBy == debtor.key && e.splitAmounts.containsKey(creditor.key)),
+        (e) =>
+            (e.paidBy == creditor.key &&
+                e.splitAmounts.containsKey(debtor.key)) ||
+            (e.paidBy == debtor.key &&
+                e.splitAmounts.containsKey(creditor.key)),
         orElse: () => expenses.first,
       );
 
@@ -254,7 +311,8 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
 
       // Actualizar balances
       debtorsList[debtorIndex] = MapEntry(debtor.key, debtor.value - amount);
-      creditorsList[creditorIndex] = MapEntry(creditor.key, creditor.value - amount);
+      creditorsList[creditorIndex] =
+          MapEntry(creditor.key, creditor.value - amount);
 
       // Avanzar índices
       if (debtorsList[debtorIndex].value < 0.01) {
@@ -268,5 +326,3 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     return debts;
   }
 }
-
-

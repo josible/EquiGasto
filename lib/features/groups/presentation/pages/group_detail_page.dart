@@ -9,6 +9,7 @@ import 'dart:io' show Platform;
 import '../../../../core/constants/route_names.dart';
 import '../../../expenses/presentation/providers/expenses_provider.dart';
 import '../../../expenses/domain/entities/debt.dart';
+import '../../../expenses/domain/entities/expense.dart';
 import '../providers/groups_provider.dart';
 import '../providers/group_members_provider.dart';
 import '../providers/group_balance_provider.dart';
@@ -535,6 +536,7 @@ class _ExpensesTab extends ConsumerWidget {
             for (final member in members) {
               membersMap[member.id] = member;
             }
+            final currentUser = ref.watch(authStateProvider).value;
 
             return RefreshIndicator(
               onRefresh: () async {
@@ -557,34 +559,99 @@ class _ExpensesTab extends ConsumerWidget {
                       final paidByUser = membersMap[expense.paidBy];
                       final paidByName = paidByUser?.name ??
                           'Usuario ${expense.paidBy.substring(0, 8)}';
+                      final canManageExpense =
+                          currentUser?.id == expense.paidBy;
 
                       return Card(
-                        child: ListTile(
-                          leading: const Icon(Icons.receipt),
-                          title: Text(expense.description),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                        child: IntrinsicHeight(
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                  '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}'),
-                              const SizedBox(height: 4),
-                              Row(
+                              const Padding(
+                                padding: EdgeInsets.only(right: 12),
+                                child: Icon(Icons.receipt),
+                              ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      expense.description,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(Icons.person,
+                                            size: 14, color: Colors.grey),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Pagado por: $paidByName',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  const Icon(Icons.person,
-                                      size: 14, color: Colors.grey),
-                                  const SizedBox(width: 4),
                                   Text(
-                                    'Pagado por: $paidByName',
-                                    style: const TextStyle(
-                                        fontSize: 12, color: Colors.grey),
+                                    '${expense.date.day}/${expense.date.month}/${expense.date.year}',
+                                    style: const TextStyle(fontSize: 12),
                                   ),
+                                  if (canManageExpense)
+                                    PopupMenuButton<String>(
+                                      icon:
+                                          const Icon(Icons.more_vert, size: 20),
+                                      onSelected: (value) {
+                                        if (value == 'edit') {
+                                          _navigateToEditExpense(
+                                              context, expense);
+                                        } else if (value == 'delete') {
+                                          _confirmDeleteExpense(
+                                            context,
+                                            ref,
+                                            expense,
+                                          );
+                                        }
+                                      },
+                                      itemBuilder: (context) => const [
+                                        PopupMenuItem(
+                                          value: 'edit',
+                                          child: ListTile(
+                                            leading: Icon(Icons.edit),
+                                            title: Text('Editar'),
+                                          ),
+                                        ),
+                                        PopupMenuItem(
+                                          value: 'delete',
+                                          child: ListTile(
+                                            leading: Icon(
+                                              Icons.delete_outline,
+                                              color: Colors.red,
+                                            ),
+                                            title: Text('Eliminar'),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
                             ],
-                          ),
-                          trailing: Text(
-                            '${expense.date.day}/${expense.date.month}/${expense.date.year}',
-                            style: const TextStyle(fontSize: 12),
                           ),
                         ),
                       );
@@ -644,6 +711,68 @@ class _ExpensesTab extends ConsumerWidget {
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, stack) => Center(child: Text('Error: $error')),
+    );
+  }
+
+  void _navigateToEditExpense(BuildContext context, Expense expense) {
+    context.push(
+      '/groups/${expense.groupId}/expenses/${expense.id}/edit',
+      extra: expense,
+    );
+  }
+
+  Future<void> _confirmDeleteExpense(
+    BuildContext context,
+    WidgetRef ref,
+    Expense expense,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Eliminar gasto'),
+        content:
+            const Text('Esta acción no se puede deshacer. ¿Deseas continuar?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final deleteUseCase = ref.read(deleteExpenseUseCaseProvider);
+    final result = await deleteUseCase(expense.id);
+
+    result.when(
+      success: (_) {
+        ref.invalidate(groupExpensesProvider(groupId));
+        ref.invalidate(groupDebtsProvider(groupId));
+        ref.invalidate(groupBalanceProvider(groupId));
+        ref.invalidate(groupsListProvider);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Gasto eliminado correctamente'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      },
+      error: (failure) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: Colors.red,
+          ),
+        );
+      },
     );
   }
 }

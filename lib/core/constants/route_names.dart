@@ -8,10 +8,9 @@ class RouteNames {
   static const String groups = '/groups';
   static const String groupDetail = '/groups/:groupId';
   static const String addExpense = '/groups/:groupId/expenses/add';
+  static const String editExpense = '/groups/:groupId/expenses/:expenseId/edit';
   static const String settings = '/settings';
   static const String profile = '/profile';
   static const String notifications = '/notifications';
   static const String joinGroup = '/join/:code';
 }
-
-

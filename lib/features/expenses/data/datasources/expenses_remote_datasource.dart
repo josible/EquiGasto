@@ -5,6 +5,7 @@ abstract class ExpensesRemoteDataSource {
   Future<List<Expense>> getGroupExpenses(String groupId);
   Future<void> createExpense(Expense expense);
   Future<void> deleteExpense(String expenseId);
+  Future<void> updateExpense(Expense expense);
 }
 
 class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
@@ -26,10 +27,10 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
         final expenses = querySnapshot.docs
             .map((doc) => _mapDocumentToExpense(doc))
             .toList();
-        
+
         // Ordenar por fecha descendente en memoria por si acaso
         expenses.sort((a, b) => b.date.compareTo(a.date));
-        
+
         return expenses;
       } catch (e) {
         // Si falla por falta de índice, intentar sin orderBy
@@ -42,10 +43,10 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
           final expenses = querySnapshot.docs
               .map((doc) => _mapDocumentToExpense(doc))
               .toList();
-          
+
           // Ordenar por fecha descendente en memoria
           expenses.sort((a, b) => b.date.compareTo(a.date));
-          
+
           return expenses;
         }
         rethrow;
@@ -82,6 +83,23 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
     }
   }
 
+  @override
+  Future<void> updateExpense(Expense expense) async {
+    try {
+      await firestore.collection('expenses').doc(expense.id).update({
+        'groupId': expense.groupId,
+        'paidBy': expense.paidBy,
+        'description': expense.description,
+        'amount': expense.amount,
+        'date': Timestamp.fromDate(expense.date),
+        'splitAmounts': expense.splitAmounts,
+        'createdAt': Timestamp.fromDate(expense.createdAt),
+      });
+    } catch (e) {
+      throw Exception('Error al actualizar gasto: $e');
+    }
+  }
+
   Expense _mapDocumentToExpense(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Expense(
@@ -100,4 +118,3 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
     );
   }
 }
-

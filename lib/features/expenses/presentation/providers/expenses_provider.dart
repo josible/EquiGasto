@@ -5,6 +5,8 @@ import '../../domain/entities/debt.dart';
 import '../../domain/usecases/add_expense_usecase.dart';
 import '../../domain/usecases/get_group_debts_usecase.dart';
 import '../../domain/usecases/settle_debt_usecase.dart';
+import '../../domain/usecases/delete_expense_usecase.dart';
+import '../../domain/usecases/update_expense_usecase.dart';
 import '../../../../core/di/providers.dart';
 import '../../domain/repositories/expenses_repository.dart';
 
@@ -23,7 +25,18 @@ final settleDebtUseCaseProvider = Provider<SettleDebtUseCase>((ref) {
   return SettleDebtUseCase(repository);
 });
 
-final groupExpensesProvider = FutureProvider.family<List<Expense>, String>((ref, groupId) async {
+final deleteExpenseUseCaseProvider = Provider<DeleteExpenseUseCase>((ref) {
+  final repository = ref.watch(expensesRepositoryProvider);
+  return DeleteExpenseUseCase(repository);
+});
+
+final updateExpenseUseCaseProvider = Provider<UpdateExpenseUseCase>((ref) {
+  final repository = ref.watch(expensesRepositoryProvider);
+  return UpdateExpenseUseCase(repository);
+});
+
+final groupExpensesProvider =
+    FutureProvider.family<List<Expense>, String>((ref, groupId) async {
   final repository = ref.watch(expensesRepositoryProvider);
   final result = await repository.getGroupExpenses(groupId);
 
@@ -33,7 +46,8 @@ final groupExpensesProvider = FutureProvider.family<List<Expense>, String>((ref,
   );
 });
 
-final groupDebtsProvider = FutureProvider.family<List<Debt>, String>((ref, groupId) async {
+final groupDebtsProvider =
+    FutureProvider.family<List<Debt>, String>((ref, groupId) async {
   final repository = ref.watch(expensesRepositoryProvider);
   final result = await repository.getGroupDebts(groupId);
 
@@ -42,4 +56,3 @@ final groupDebtsProvider = FutureProvider.family<List<Debt>, String>((ref, group
     error: (_) => [],
   );
 });
-
