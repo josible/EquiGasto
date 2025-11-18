@@ -10,6 +10,7 @@ import 'package:app_links/app_links.dart';
 import 'firebase_options.dart';
 import 'core/router/app_router.dart';
 import 'core/di/providers.dart';
+import 'core/services/play_integrity_service.dart';
 
 const String _googleServerClientId =
     '363848646486-amk51ebf9fqvbqufmk3a9g2a78b014t8.apps.googleusercontent.com';
@@ -26,6 +27,10 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Inicializar Play Integrity (App Check)
+  final playIntegrityService = PlayIntegrityService();
+  await playIntegrityService.initialize();
 
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 

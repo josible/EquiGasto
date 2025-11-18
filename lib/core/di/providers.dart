@@ -30,6 +30,7 @@ import '../services/local_auth_service.dart';
 import '../services/credentials_storage.dart';
 import '../services/push_notifications_service.dart';
 import '../services/app_update_service.dart';
+import '../services/play_integrity_service.dart';
 
 // Firebase
 final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
@@ -193,4 +194,8 @@ final pushNotificationsServiceProvider =
 final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
   final firestore = ref.watch(firebaseFirestoreProvider);
   return AppUpdateService(firestore);
+});
+
+final playIntegrityServiceProvider = Provider<PlayIntegrityService>((ref) {
+  return PlayIntegrityService();
 });
