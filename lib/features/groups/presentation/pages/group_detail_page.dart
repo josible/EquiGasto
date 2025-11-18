@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -92,6 +93,13 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                       }
                     },
                   ),
+                  title: Text(
+                    group.name,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.share),
@@ -139,16 +147,9 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                       ),
                   ],
                   flexibleSpace: FlexibleSpaceBar(
-                    title: Text(group.name),
-                    background: Container(
-                      color: Colors.blue,
-                      child: const Center(
-                        child: Icon(
-                          Icons.group,
-                          size: 80,
-                          color: Colors.white,
-                        ),
-                      ),
+                    background: _GroupBalanceHeader(
+                      groupId: group.id,
+                      memberIds: group.memberIds,
                     ),
                   ),
                 ),
@@ -1534,6 +1535,351 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
         ),
       ],
     );
+  }
+}
+
+class _GroupBalanceHeader extends ConsumerWidget {
+  const _GroupBalanceHeader({
+    required this.groupId,
+    required this.memberIds,
+  });
+
+  final String groupId;
+  final List<String> memberIds;
+
+  static const _tolerance = 0.01;
+  static const _positiveColor = Color(0xFF4CAF50);
+  static const _negativeColor = Color(0xFFFF7043);
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (memberIds.isEmpty) {
+      return _buildBackground(
+        child: _buildMessage(
+          icon: Icons.group_add_outlined,
+          text: 'Aún no hay miembros.\nInvita a alguien para ver el balance.',
+        ),
+      );
+    }
+
+    final groupAsync = ref.watch(groupProvider(groupId));
+    final debtsAsync = ref.watch(groupDebtsProvider(groupId));
+    final membersAsync = ref.watch(groupMembersProvider(memberIds));
+
+    return groupAsync.when(
+      data: (group) {
+        return membersAsync.when(
+          data: (members) {
+            final membersMap = {
+              for (final user in members) user.id: user,
+            };
+
+            return debtsAsync.when(
+              data: (debts) =>
+                  _buildContent(context, group.name, membersMap, debts),
+              loading: () => _buildBackground(
+                child: const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+              ),
+              error: (error, _) => _buildBackground(
+                child: _buildMessage(
+                  icon: Icons.error_outline,
+                  text: 'No pudimos cargar el balance.\n$error',
+                ),
+              ),
+            );
+          },
+          loading: () => _buildBackground(
+            child: const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+          error: (error, _) => _buildBackground(
+            child: _buildMessage(
+              icon: Icons.error_outline,
+              text: 'No pudimos cargar los miembros.\n$error',
+            ),
+          ),
+        );
+      },
+      loading: () => _buildBackground(
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      ),
+      error: (error, _) => _buildBackground(
+        child: _buildMessage(
+          icon: Icons.error_outline,
+          text: 'No pudimos cargar el grupo.\n$error',
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    String groupName,
+    Map<String, User> membersMap,
+    List<Debt> debts,
+  ) {
+    if (debts.isEmpty) {
+      return _buildBackground(
+        child: _buildMessage(
+          icon: Icons.celebration_outlined,
+          text: 'Todo en equilibrio.\nNo hay deudas pendientes.',
+        ),
+      );
+    }
+
+    // Calcular balances
+    final balances = <String, double>{
+      for (final memberId in memberIds) memberId: 0.0,
+    };
+
+    for (final debt in debts) {
+      balances.update(
+        debt.fromUserId,
+        (value) => value - debt.amount,
+        ifAbsent: () => -debt.amount,
+      );
+      balances.update(
+        debt.toUserId,
+        (value) => value + debt.amount,
+        ifAbsent: () => debt.amount,
+      );
+    }
+
+    // Solo mostrar quienes deben (negativos)
+    final debtors = balances.entries
+        .where((entry) => entry.value < -_tolerance)
+        .map((entry) => MapEntry(entry.key, entry.value.abs()))
+        .toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (debtors.isEmpty) {
+      return _buildBackground(
+        child: _buildMessage(
+          icon: Icons.celebration_outlined,
+          text: 'Nadie debe dinero.\nTodo está equilibrado.',
+        ),
+      );
+    }
+
+    final totalDebt =
+        debtors.fold<double>(0.0, (sum, entry) => sum + entry.value);
+    final topDebtor = debtors.first;
+    final topDebtorName =
+        _resolveName(membersMap[topDebtor.key], topDebtor.key);
+
+    return _buildBackground(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16.0, 50.0, 16.0, 12.0),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 140,
+              height: 140,
+              child: CustomPaint(
+                painter: _DebtPiePainter(debtors, membersMap),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '€${topDebtor.value.toStringAsFixed(2)}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        topDebtorName,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 11,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: debtors.take(3).map((entry) {
+                  final name =
+                      _resolveName(membersMap[entry.key], entry.key);
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 12,
+                          height: 12,
+                          decoration: BoxDecoration(
+                            color: _getDebtColorForIndex(
+                                debtors.indexOf(entry)),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            name,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '€${entry.value.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Color _getDebtColorForIndex(int index) {
+    final redShades = [
+      const Color(0xFFFF5252),
+      const Color(0xFFFF7043),
+      const Color(0xFFFF8A65),
+      const Color(0xFFFFAB91),
+      const Color(0xFFFF6B6B),
+      const Color(0xFFE53935),
+    ];
+    return redShades[index % redShades.length];
+  }
+
+  Widget _buildBackground({required Widget child}) {
+    return Container(
+      color: Colors.blue,
+      child: child,
+    );
+  }
+
+  Widget _buildMessage({required IconData icon, required String text}) {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: Colors.white70, size: 32),
+          const SizedBox(height: 12),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _resolveName(User? user, String fallbackId) {
+    final name = user?.name?.trim() ?? '';
+    if (name.isNotEmpty) {
+      final parts = name.split(' ');
+      if (parts.length > 1 && parts.last.isNotEmpty) {
+        return '${parts.first} ${parts.last.substring(0, 1).toUpperCase()}.';
+      }
+      return parts.first;
+    }
+    final shortened = fallbackId.length > 6
+        ? fallbackId.substring(0, 6).toUpperCase()
+        : fallbackId.toUpperCase();
+    return 'Usuario $shortened';
+  }
+}
+
+class _DebtPiePainter extends CustomPainter {
+  const _DebtPiePainter(this.debtors, this.membersMap);
+
+  final List<MapEntry<String, double>> debtors;
+  final Map<String, User> membersMap;
+
+  Color _getDebtColor(int index) {
+    final redShades = [
+      const Color(0xFFFF5252),
+      const Color(0xFFFF7043),
+      const Color(0xFFFF8A65),
+      const Color(0xFFFFAB91),
+      const Color(0xFFFF6B6B),
+      const Color(0xFFE53935),
+    ];
+    return redShades[index % redShades.length];
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (debtors.isEmpty) return;
+
+    final total = debtors.fold<double>(0.0, (sum, entry) => sum + entry.value);
+    if (total <= 0) return;
+
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.shortestSide / 2 - 10;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    final paint = Paint()
+      ..style = PaintingStyle.fill
+      ..strokeWidth = 0;
+
+    var startAngle = -math.pi / 2;
+
+    for (var i = 0; i < debtors.length; i++) {
+      final entry = debtors[i];
+      final sweepAngle = (entry.value / total) * 2 * math.pi;
+
+      paint.color = _getDebtColor(i);
+      canvas.drawArc(rect, startAngle, sweepAngle, true, paint);
+
+      startAngle += sweepAngle;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DebtPiePainter oldDelegate) {
+    if (oldDelegate.debtors.length != debtors.length) return true;
+    for (var i = 0; i < debtors.length; i++) {
+      if (oldDelegate.debtors[i].key != debtors[i].key ||
+          oldDelegate.debtors[i].value != debtors[i].value) {
+        return true;
+      }
+    }
+    return false;
   }
 }
 
