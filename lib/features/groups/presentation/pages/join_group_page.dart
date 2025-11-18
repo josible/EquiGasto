@@ -27,9 +27,9 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
   bool _isJoining = false;
   bool _hasShownError = false;
   Future<Group>? _groupFuture;
-  
+
   String get _normalizedCode => widget.code.trim().toUpperCase();
-  
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +40,7 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
   Future<void> _handleJoin() async {
     final authState = ref.read(authStateProvider);
     final user = authState.value;
-    
+
     if (user == null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -79,14 +79,14 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
           ref.invalidate(groupProvider(group.id));
           ref.invalidate(groupMembersProvider(group.memberIds));
         }
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Te has unido al grupo exitosamente'),
             backgroundColor: Colors.green,
           ),
         );
-        
+
         // Navegar directamente al detalle del grupo si tenemos el groupId
         if (group != null) {
           context.go('/groups/${group.id}');
@@ -108,14 +108,18 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
 
   @override
   Widget build(BuildContext context) {
-    print('🔍 JoinGroupPage - Código recibido: ${widget.code} (longitud: ${widget.code.length})');
-    debugPrint('🔍 JoinGroupPage - Código recibido: ${widget.code} (longitud: ${widget.code.length})');
-    
+    print(
+        '🔍 JoinGroupPage - Código recibido: ${widget.code} (longitud: ${widget.code.length})');
+    debugPrint(
+        '🔍 JoinGroupPage - Código recibido: ${widget.code} (longitud: ${widget.code.length})');
+
     // Validar que el código no sea demasiado largo (los códigos de invitación son de 8 caracteres)
     // Si es muy largo, probablemente es un groupId, no un código de invitación
     if (_normalizedCode.length > 20 || _normalizedCode.length < 4) {
-      print('❌ JoinGroupPage - Código inválido (longitud: ${_normalizedCode.length}), probablemente es un groupId o código malformado');
-      debugPrint('❌ JoinGroupPage - Código inválido (longitud: ${_normalizedCode.length}), probablemente es un groupId o código malformado');
+      print(
+          '❌ JoinGroupPage - Código inválido (longitud: ${_normalizedCode.length}), probablemente es un groupId o código malformado');
+      debugPrint(
+          '❌ JoinGroupPage - Código inválido (longitud: ${_normalizedCode.length}), probablemente es un groupId o código malformado');
       return Scaffold(
         appBar: AppBar(
           title: const Text('Invitación a grupo'),
@@ -160,18 +164,29 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
         ),
       );
     }
-    
+
     debugPrint('🔍 JoinGroupPage - Código normalizado: $_normalizedCode');
-    
+
     // Usar FutureBuilder con el future cargado en initState para evitar recargas infinitas
     if (_groupFuture == null) {
-      _groupFuture = ref.read(groupByInviteCodeProvider(_normalizedCode).future);
+      _groupFuture =
+          ref.read(groupByInviteCodeProvider(_normalizedCode).future);
     }
 
     return Scaffold(
       key: ValueKey('join_group_${_normalizedCode}'),
       appBar: AppBar(
         title: const Text('Invitación a grupo'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            if (context.canPop()) {
+              context.pop();
+            } else {
+              context.go(RouteNames.home);
+            }
+          },
+        ),
       ),
       body: FutureBuilder<Group>(
         future: _groupFuture,
@@ -183,12 +198,13 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
                 children: [
                   const CircularProgressIndicator(),
                   const SizedBox(height: 16),
-                  Text('Buscando grupo con código: $_normalizedCode', style: const TextStyle(color: Colors.grey)),
+                  Text('Buscando grupo con código: $_normalizedCode',
+                      style: const TextStyle(color: Colors.grey)),
                 ],
               ),
             );
           }
-          
+
           if (snapshot.hasError) {
             return Center(
               child: Padding(
@@ -196,17 +212,22 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const Icon(Icons.error_outline,
+                        size: 64, color: Colors.red),
                     const SizedBox(height: 16),
-                    Text('Error: ${snapshot.error}', style: const TextStyle(fontSize: 16), textAlign: TextAlign.center),
+                    Text('Error: ${snapshot.error}',
+                        style: const TextStyle(fontSize: 16),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 24),
-                    ElevatedButton(onPressed: () => context.go(RouteNames.groups), child: const Text('Volver')),
+                    ElevatedButton(
+                        onPressed: () => context.go(RouteNames.groups),
+                        child: const Text('Volver')),
                   ],
                 ),
               ),
             );
           }
-          
+
           if (!snapshot.hasData) {
             return Center(
               child: Padding(
@@ -214,191 +235,201 @@ class _JoinGroupPageState extends ConsumerState<JoinGroupPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 64, color: Colors.red),
+                    const Icon(Icons.error_outline,
+                        size: 64, color: Colors.red),
                     const SizedBox(height: 16),
-                    const Text('Grupo no encontrado', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                    const Text('Grupo no encontrado',
+                        style: TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold),
+                        textAlign: TextAlign.center),
                     const SizedBox(height: 24),
-                    ElevatedButton(onPressed: () => context.go(RouteNames.groups), child: const Text('Volver')),
+                    ElevatedButton(
+                        onPressed: () => context.go(RouteNames.groups),
+                        child: const Text('Volver')),
                   ],
                 ),
               ),
             );
           }
-          
+
           final group = snapshot.data!;
-          
+
           return _buildGroupContent(group);
         },
       ),
     );
   }
-  
+
   Widget _buildGroupContent(Group group) {
     print('✅ JoinGroupPage - Grupo encontrado: ${group.id} - ${group.name}');
-    debugPrint('✅ JoinGroupPage - Grupo encontrado: ${group.id} - ${group.name}');
-    
+    debugPrint(
+        '✅ JoinGroupPage - Grupo encontrado: ${group.id} - ${group.name}');
+
     // Obtener información del creador de forma opcional usando FutureBuilder
     // para evitar que el provider cause recargas infinitas
     return FutureBuilder<List<User>>(
-            future: ref.read(groupMembersProvider([group.createdBy]).future).catchError((e) {
-              print('❌ JoinGroupPage - Error al obtener creador: $e');
-              debugPrint('❌ JoinGroupPage - Error al obtener creador: $e');
-              return <User>[];
-            }),
-            builder: (context, snapshot) {
-              final creator = snapshot.hasData && snapshot.data!.isNotEmpty 
-                  ? snapshot.data!.first 
-                  : null;
-              
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const SizedBox(height: 40),
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.group_add,
-                        size: 80,
-                        color: Colors.blue,
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'Invitación a unirse a',
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.grey,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      group.name,
-                      style: const TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    if (group.description.isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        group.description,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          color: Colors.grey,
+      future: ref
+          .read(groupMembersProvider([group.createdBy]).future)
+          .catchError((e) {
+        print('❌ JoinGroupPage - Error al obtener creador: $e');
+        debugPrint('❌ JoinGroupPage - Error al obtener creador: $e');
+        return <User>[];
+      }),
+      builder: (context, snapshot) {
+        final creator = snapshot.hasData && snapshot.data!.isNotEmpty
+            ? snapshot.data!.first
+            : null;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const SizedBox(height: 40),
+              Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.group_add,
+                  size: 80,
+                  color: Colors.blue,
+                ),
+              ),
+              const SizedBox(height: 32),
+              const Text(
+                'Invitación a unirse a',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                group.name,
+                style: const TextStyle(
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              if (group.description.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(
+                  group.description,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+              const SizedBox(height: 32),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person, color: Colors.blue),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Creado por',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              creator?.name ?? 'Usuario',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                        textAlign: TextAlign.center,
                       ),
                     ],
-                    const SizedBox(height: 32),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.person, color: Colors.blue),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Creado por',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    creator?.name ?? 'Usuario',
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    Card(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.vpn_key, color: Colors.orange),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Código de invitación',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    _normalizedCode,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: 2,
-                                      color: Colors.blue,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton.icon(
-                        onPressed: _isJoining ? null : _handleJoin,
-                        icon: _isJoining
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                ),
-                              )
-                            : const Icon(Icons.check),
-                        label: Text(_isJoining ? 'Uniéndose...' : 'Aceptar invitación'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          backgroundColor: Colors.blue,
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () => context.go(RouteNames.groups),
-                      child: const Text('Cancelar'),
-                    ),
-                  ],
+                  ),
                 ),
-              );
-            },
-          );
+              ),
+              const SizedBox(height: 24),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.vpn_key, color: Colors.orange),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Código de invitación',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              _normalizedCode,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 2,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _isJoining ? null : _handleJoin,
+                  icon: _isJoining
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.check),
+                  label:
+                      Text(_isJoining ? 'Uniéndose...' : 'Aceptar invitación'),
+                  style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: Colors.blue,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => context.go(RouteNames.groups),
+                child: const Text('Cancelar'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
-

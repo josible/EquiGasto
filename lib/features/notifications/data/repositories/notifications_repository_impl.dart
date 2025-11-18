@@ -70,4 +70,14 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
       return Error(ServerFailure('Error al guardar notificación: $e'));
     }
   }
+
+  @override
+  Stream<List<AppNotification>> watchUserNotifications(String userId) {
+    return remoteDataSource.watchUserNotifications(userId);
+  }
+
+  @override
+  Stream<int> watchUnreadCount(String userId) {
+    return remoteDataSource.watchUnreadCount(userId);
+  }
 }

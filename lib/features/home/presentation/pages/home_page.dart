@@ -8,6 +8,7 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/pages/groups_list_page.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../groups/presentation/widgets/create_group_dialog.dart';
+import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 
 class HomePage extends ConsumerStatefulWidget {
@@ -110,6 +111,13 @@ class _HomePageState extends ConsumerState<HomePage> {
           );
         }
 
+        final unreadCountAsync =
+            ref.watch(unreadNotificationsCountProvider(user.id));
+        final unreadCount = unreadCountAsync.maybeWhen(
+          data: (count) => count,
+          orElse: () => 0,
+        );
+
         return DefaultTabController(
           initialIndex: widget.initialTabIndex,
           length: 3,
@@ -118,7 +126,10 @@ class _HomePageState extends ConsumerState<HomePage> {
               title: const Text('EquiGasto'),
               actions: [
                 IconButton(
-                  icon: const Icon(Icons.notifications),
+                  icon: _BadgeIcon(
+                    icon: Icons.notifications,
+                    count: unreadCount,
+                  ),
                   onPressed: () => context.push(RouteNames.notifications),
                 ),
                 IconButton(
@@ -162,6 +173,50 @@ class _HomePageState extends ConsumerState<HomePage> {
   }
 }
 
+class _BadgeIcon extends StatelessWidget {
+  const _BadgeIcon({
+    required this.icon,
+    required this.count,
+    this.size = 24,
+  });
+
+  final IconData icon;
+  final int count;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Icon(icon, size: size),
+        if (count > 0)
+          Positioned(
+            right: -2,
+            top: -2,
+            child: Container(
+              padding: const EdgeInsets.all(2),
+              decoration: const BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(
+                count > 99 ? '99+' : '$count',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 class _HomeTab extends ConsumerWidget {
   const _HomeTab();
 
@@ -179,6 +234,13 @@ class _HomeTab extends ConsumerWidget {
         if (user == null) {
           return const Center(child: Text('No hay usuario autenticado'));
         }
+
+        final unreadCountAsync =
+            ref.watch(unreadNotificationsCountProvider(user.id));
+        final unreadCount = unreadCountAsync.maybeWhen(
+          data: (count) => count,
+          orElse: () => 0,
+        );
 
         return ListView(
           padding: const EdgeInsets.all(16.0),
@@ -269,7 +331,11 @@ class _HomeTab extends ConsumerWidget {
             const SizedBox(height: 8),
             Card(
               child: ListTile(
-                leading: const Icon(Icons.notifications, size: 40),
+                leading: _BadgeIcon(
+                  icon: Icons.notifications,
+                  count: unreadCount,
+                  size: 40,
+                ),
                 title: const Text('Notificaciones'),
                 subtitle: const Text('Revisa tus notificaciones'),
                 trailing: const Icon(Icons.arrow_forward_ios),

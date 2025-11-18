@@ -1,19 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/notification.dart';
-import '../../domain/repositories/notifications_repository.dart';
-import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
-
-final _userNotificationsProvider =
-    FutureProvider.family<List<AppNotification>, String>((ref, userId) async {
-  final notificationsRepository = ref.watch(notificationsRepositoryProvider);
-  final result = await notificationsRepository.getUserNotifications(userId);
-  return result.when(
-    success: (notifications) => notifications,
-    error: (_) => [],
-  );
-});
+import '../providers/notifications_provider.dart';
+import '../../../../core/di/providers.dart';
 
 class NotificationsPage extends ConsumerWidget {
   const NotificationsPage({super.key});
@@ -31,12 +21,36 @@ class NotificationsPage extends ConsumerWidget {
     }
 
     final notificationsRepository = ref.watch(notificationsRepositoryProvider);
+    final unreadCountAsync =
+        ref.watch(unreadNotificationsCountProvider(user.id));
+    final unreadCount = unreadCountAsync.maybeWhen(
+      data: (count) => count,
+      orElse: () => 0,
+    );
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notificaciones'),
+        actions: [
+          if (unreadCount > 0)
+            TextButton(
+              onPressed: () async {
+                final result =
+                    await notificationsRepository.markAllAsRead(user.id);
+                result.when(
+                  success: (_) {},
+                  error: (failure) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(failure.message)),
+                    );
+                  },
+                );
+              },
+              child: const Text('Marcar todo'),
+            ),
+        ],
       ),
-      body: ref.watch(_userNotificationsProvider(user.id)).when(
+      body: ref.watch(userNotificationsProvider(user.id)).when(
             data: (notifications) {
               if (notifications.isEmpty) {
                 return const _EmptyNotifications();
@@ -69,9 +83,16 @@ class NotificationsPage extends ConsumerWidget {
                       ),
                       onTap: () async {
                         if (!notification.isRead) {
-                          await notificationsRepository.markAsRead(
-                              notification.id);
-                          ref.invalidate(_userNotificationsProvider(user.id));
+                          final result = await notificationsRepository
+                              .markAsRead(notification.id);
+                          result.when(
+                            success: (_) {},
+                            error: (failure) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(content: Text(failure.message)),
+                              );
+                            },
+                          );
                         }
                       },
                     ),
@@ -85,16 +106,16 @@ class NotificationsPage extends ConsumerWidget {
     );
   }
 
-  IconData _getIconForType(notificationType) {
-    switch (notificationType.toString()) {
-      case 'NotificationType.expenseAdded':
+  IconData _getIconForType(NotificationType notificationType) {
+    switch (notificationType) {
+      case NotificationType.expenseAdded:
         return Icons.receipt;
-      case 'NotificationType.groupInvitation':
+      case NotificationType.groupInvitation:
         return Icons.group_add;
-      case 'NotificationType.debtSettled':
+      case NotificationType.debtSettled:
         return Icons.check_circle;
-      default:
-        return Icons.notifications;
+      case NotificationType.memberLeft:
+        return Icons.person_remove;
     }
   }
 }

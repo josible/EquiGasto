@@ -7,6 +7,8 @@ abstract class NotificationsRemoteDataSource {
   Future<void> markAsRead(String notificationId);
   Future<void> markAllAsRead(String userId);
   Future<int> getUnreadCount(String userId);
+  Stream<List<AppNotification>> watchUserNotifications(String userId);
+  Stream<int> watchUnreadCount(String userId);
 }
 
 class NotificationsRemoteDataSourceImpl
@@ -61,6 +63,24 @@ class NotificationsRemoteDataSourceImpl
         .where('isRead', isEqualTo: false)
         .get();
     return querySnapshot.docs.length;
+  }
+
+  @override
+  Stream<List<AppNotification>> watchUserNotifications(String userId) {
+    return _collection
+        .where('userId', isEqualTo: userId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.map(_fromDocument).toList());
+  }
+
+  @override
+  Stream<int> watchUnreadCount(String userId) {
+    return _collection
+        .where('userId', isEqualTo: userId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
   }
 
   AppNotification _fromDocument(

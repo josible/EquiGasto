@@ -82,6 +82,16 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                   expandedHeight: 200,
                   floating: false,
                   pinned: true,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        context.go(RouteNames.home);
+                      }
+                    },
+                  ),
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.share),
@@ -406,23 +416,30 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     final inviter = members.isNotEmpty ? members.first : null;
 
     // Obtener o generar el código de invitación
-    print('🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
-    debugPrint('🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
+    print(
+        '🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
+    debugPrint(
+        '🔍 _showShareDialog - Generando código para groupId: ${widget.groupId}');
     final generateCodeUseCase = ref.read(generateInviteCodeUseCaseProvider);
     final codeResult = await generateCodeUseCase(widget.groupId);
 
     final inviteCode = codeResult.when(
       success: (code) {
-        print('✅ _showShareDialog - Código generado: $code (longitud: ${code.length})');
-        debugPrint('✅ _showShareDialog - Código generado: $code (longitud: ${code.length})');
+        print(
+            '✅ _showShareDialog - Código generado: $code (longitud: ${code.length})');
+        debugPrint(
+            '✅ _showShareDialog - Código generado: $code (longitud: ${code.length})');
         // Validar que el código tenga una longitud razonable
         if (code.length > 20 || code.length < 4) {
-          print('❌ _showShareDialog - Código generado tiene longitud inválida: ${code.length}');
-          debugPrint('❌ _showShareDialog - Código generado tiene longitud inválida: ${code.length}');
+          print(
+              '❌ _showShareDialog - Código generado tiene longitud inválida: ${code.length}');
+          debugPrint(
+              '❌ _showShareDialog - Código generado tiene longitud inválida: ${code.length}');
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Error al generar código de invitación. Por favor, intenta de nuevo.'),
+                content: Text(
+                    'Error al generar código de invitación. Por favor, intenta de nuevo.'),
                 backgroundColor: Colors.red,
               ),
             );
@@ -432,8 +449,10 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
         return code;
       },
       error: (failure) {
-        print('❌ _showShareDialog - Error al generar código: ${failure.message}');
-        debugPrint('❌ _showShareDialog - Error al generar código: ${failure.message}');
+        print(
+            '❌ _showShareDialog - Error al generar código: ${failure.message}');
+        debugPrint(
+            '❌ _showShareDialog - Error al generar código: ${failure.message}');
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -449,7 +468,8 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     if (!context.mounted || inviteCode == null) return;
 
     print('✅ _showShareDialog - Mostrando diálogo con código: $inviteCode');
-    debugPrint('✅ _showShareDialog - Mostrando diálogo con código: $inviteCode');
+    debugPrint(
+        '✅ _showShareDialog - Mostrando diálogo con código: $inviteCode');
 
     showDialog(
       context: context,
