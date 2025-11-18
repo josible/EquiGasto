@@ -29,6 +29,7 @@ import 'null_datasources.dart' as null_ds;
 import '../services/local_auth_service.dart';
 import '../services/credentials_storage.dart';
 import '../services/push_notifications_service.dart';
+import '../services/app_update_service.dart';
 
 // Firebase
 final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
@@ -187,4 +188,9 @@ final pushNotificationsServiceProvider =
   final messaging = ref.watch(firebaseMessagingProvider);
   final localNotifications = ref.watch(flutterLocalNotificationsPluginProvider);
   return PushNotificationsService(ref, messaging, localNotifications);
+});
+
+final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
+  final firestore = ref.watch(firebaseFirestoreProvider);
+  return AppUpdateService(firestore);
 });

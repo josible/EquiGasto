@@ -1,7 +1,7 @@
 name: equigasto
 description: Una aplicación móvil para reparto de gastos similar a Splitwise
 publish_to: 'none'
-version: 1.0.14+15
+version: 1.0.15+16
 
 environment:
   sdk: '>=3.5.0 <4.0.0'
@@ -24,6 +24,7 @@ dependencies:
   google_sign_in: ^7.2.0
   firebase_messaging: ^16.0.4
   flutter_local_notifications: ^17.2.1+1
+  package_info_plus: ^8.1.1
   
   # Publicidad
   google_mobile_ads: ^6.0.0

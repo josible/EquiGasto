@@ -97,6 +97,7 @@ class _EquiGastoAppState extends ConsumerState<EquiGastoApp> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(pushNotificationsServiceProvider).initialize();
+      ref.read(appUpdateServiceProvider).checkForUpdates(context);
     });
   }
 

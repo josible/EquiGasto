@@ -832,13 +832,23 @@ class _ExpensesTab extends ConsumerWidget {
             return RefreshIndicator(
               onRefresh: () async {
                 ref.invalidate(groupExpensesProvider(groupId));
-                await Future.delayed(const Duration(milliseconds: 500));
+                ref.invalidate(groupDebtsProvider(groupId));
+                ref.invalidate(groupBalanceProvider(groupId));
+                await Future.delayed(const Duration(milliseconds: 300));
               },
               child: expensesAsync.when(
                 data: (expenses) {
                   if (expenses.isEmpty) {
-                    return const Center(
-                      child: Text('No hay gastos aún'),
+                    return ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(16.0),
+                      children: const [
+                        SizedBox(height: 120),
+                        Text(
+                          'No hay gastos aún',
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     );
                   }
 
@@ -954,34 +964,63 @@ class _ExpensesTab extends ConsumerWidget {
                     },
                   );
                 },
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $error'),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        onPressed: () {
-                          ref.invalidate(groupExpensesProvider(groupId));
-                        },
-                        child: const Text('Reintentar'),
-                      ),
-                    ],
-                  ),
+                loading: () => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  children: const [
+                    SizedBox(
+                      height: 200,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ],
+                ),
+                error: (error, stack) => ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  children: [
+                    Text(
+                      'Error: $error',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () {
+                        ref.invalidate(groupExpensesProvider(groupId));
+                      },
+                      child: const Text('Reintentar'),
+                    ),
+                  ],
                 ),
               ),
             );
           },
-          loading: () => const Center(child: CircularProgressIndicator()),
+          loading: () => ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
+            children: const [
+              SizedBox(
+                height: 200,
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            ],
+          ),
           error: (_, __) => expensesAsync.when(
             data: (expenses) {
               if (expenses.isEmpty) {
-                return const Center(
-                  child: Text('No hay gastos aún'),
+                return ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  children: const [
+                    SizedBox(height: 120),
+                    Text(
+                      'No hay gastos aún',
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 );
               }
               return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16.0),
                 itemCount: expenses.length,
                 itemBuilder: (context, index) {
@@ -1001,13 +1040,49 @@ class _ExpensesTab extends ConsumerWidget {
                 },
               );
             },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => Center(child: Text('Error: $error')),
+            loading: () => ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              children: const [
+                SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              ],
+            ),
+            error: (error, stack) => ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                Text(
+                  'Error: $error',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      loading: () => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        children: const [
+          SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      ),
+      error: (error, stack) => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          Text(
+            'Error: $error',
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
     );
   }
 
@@ -1084,6 +1159,12 @@ class _MembersTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
 
+    Future<void> refreshMembers() async {
+      ref.invalidate(groupMembersProvider(group.memberIds));
+      ref.invalidate(groupExpensesProvider(groupId));
+      await Future.delayed(const Duration(milliseconds: 300));
+    }
+
     return Column(
       children: [
         Padding(
@@ -1103,42 +1184,89 @@ class _MembersTab extends ConsumerWidget {
                 membersMap[member.id] = member;
               }
 
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                itemCount: group.memberIds.length,
-                itemBuilder: (context, index) {
-                  final memberId = group.memberIds[index];
-                  final member = membersMap[memberId];
-                  final displayName =
-                      member != null ? member.name : 'Miembro ${index + 1}';
-                  final initial = member != null
-                      ? member.name[0].toUpperCase()
-                      : memberId.substring(0, 1).toUpperCase();
+              return RefreshIndicator(
+                onRefresh: refreshMembers,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  itemCount: group.memberIds.length,
+                  itemBuilder: (context, index) {
+                    final memberId = group.memberIds[index];
+                    final member = membersMap[memberId];
+                    final displayName =
+                        member != null ? member.name : 'Miembro ${index + 1}';
+                    final initial = member != null
+                        ? member.name[0].toUpperCase()
+                        : memberId.substring(0, 1).toUpperCase();
 
-                  // Calcular balance del miembro
-                  final expensesAsync =
-                      ref.watch(groupExpensesProvider(groupId));
-                  return expensesAsync.when(
-                    data: (expenses) {
-                      double memberBalance = 0.0;
-                      for (final expense in expenses) {
-                        if (expense.paidBy == memberId) {
-                          memberBalance += expense.amount;
+                    final expensesAsync =
+                        ref.watch(groupExpensesProvider(groupId));
+                    return expensesAsync.when(
+                      data: (expenses) {
+                        double memberBalance = 0.0;
+                        for (final expense in expenses) {
+                          if (expense.paidBy == memberId) {
+                            memberBalance += expense.amount;
+                          }
+                          if (expense.splitAmounts.containsKey(memberId)) {
+                            memberBalance -= expense.splitAmounts[memberId]!;
+                          }
                         }
-                        if (expense.splitAmounts.containsKey(memberId)) {
-                          memberBalance -= expense.splitAmounts[memberId]!;
-                        }
-                      }
 
-                      final isPositive = memberBalance > 0.01;
-                      final isNegative = memberBalance < -0.01;
-                      final balanceColor = isPositive
-                          ? Colors.green
-                          : isNegative
-                              ? Colors.red
-                              : Colors.grey;
+                        final isPositive = memberBalance > 0.01;
+                        final isNegative = memberBalance < -0.01;
+                        final balanceColor = isPositive
+                            ? Colors.green
+                            : isNegative
+                                ? Colors.red
+                                : Colors.grey;
 
-                      return Card(
+                        return Card(
+                          child: ListTile(
+                            leading: Stack(
+                              children: [
+                                CircleAvatar(
+                                  child: Text(initial),
+                                ),
+                                if (group.createdBy == memberId)
+                                  Positioned(
+                                    right: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.blue,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.star,
+                                        size: 12,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                            title: Text(displayName),
+                            subtitle: member != null
+                                ? Text(member.email)
+                                : Text(memberId),
+                            trailing: Text(
+                              isPositive
+                                  ? '+€${memberBalance.toStringAsFixed(2).replaceAll('.', ',')}'
+                                  : isNegative
+                                      ? '-€${(-memberBalance).toStringAsFixed(2).replaceAll('.', ',')}'
+                                      : '€0,00',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: balanceColor,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
+                      loading: () => Card(
                         child: ListTile(
                           leading: Stack(
                             children: [
@@ -1168,126 +1296,98 @@ class _MembersTab extends ConsumerWidget {
                           subtitle: member != null
                               ? Text(member.email)
                               : Text(memberId),
-                          trailing: Text(
-                            isPositive
-                                ? '+€${memberBalance.toStringAsFixed(2).replaceAll('.', ',')}'
-                                : isNegative
-                                    ? '-€${(-memberBalance).toStringAsFixed(2).replaceAll('.', ',')}'
-                                    : '€0,00',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: balanceColor,
-                            ),
+                        ),
+                      ),
+                      error: (_, __) => Card(
+                        child: ListTile(
+                          leading: Stack(
+                            children: [
+                              CircleAvatar(
+                                child: Text(initial),
+                              ),
+                              if (group.createdBy == memberId)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(2),
+                                    decoration: const BoxDecoration(
+                                      color: Colors.blue,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.star,
+                                      size: 12,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                            ],
                           ),
+                          title: Text(displayName),
+                          subtitle: member != null
+                              ? Text(member.email)
+                              : Text(memberId),
                         ),
-                      );
-                    },
-                    loading: () => Card(
-                      child: ListTile(
-                        leading: Stack(
-                          children: [
-                            CircleAvatar(
-                              child: Text(initial),
-                            ),
-                            if (group.createdBy == memberId)
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.blue,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.star,
-                                    size: 12,
-                                    color: Colors.white,
-                                  ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            },
+            loading: () => RefreshIndicator(
+              onRefresh: refreshMembers,
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                children: const [
+                  SizedBox(
+                    height: 200,
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+              ),
+            ),
+            error: (_, __) => RefreshIndicator(
+              onRefresh: refreshMembers,
+              child: ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                itemCount: group.memberIds.length,
+                itemBuilder: (context, index) {
+                  final memberId = group.memberIds[index];
+                  return Card(
+                    child: ListTile(
+                      leading: Stack(
+                        children: [
+                          CircleAvatar(
+                            child: Text(memberId.substring(0, 1).toUpperCase()),
+                          ),
+                          if (group.createdBy == memberId)
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: const BoxDecoration(
+                                  color: Colors.blue,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.star,
+                                  size: 12,
+                                  color: Colors.white,
                                 ),
                               ),
-                          ],
-                        ),
-                        title: Text(displayName),
-                        subtitle: member != null
-                            ? Text(member.email)
-                            : Text(memberId),
-                      ),
-                    ),
-                    error: (_, __) => Card(
-                      child: ListTile(
-                        leading: Stack(
-                          children: [
-                            CircleAvatar(
-                              child: Text(initial),
                             ),
-                            if (group.createdBy == memberId)
-                              Positioned(
-                                right: 0,
-                                bottom: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.all(2),
-                                  decoration: const BoxDecoration(
-                                    color: Colors.blue,
-                                    shape: BoxShape.circle,
-                                  ),
-                                  child: const Icon(
-                                    Icons.star,
-                                    size: 12,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        title: Text(displayName),
-                        subtitle: member != null
-                            ? Text(member.email)
-                            : Text(memberId),
+                        ],
                       ),
+                      title: Text('Miembro ${index + 1}'),
+                      subtitle: Text(memberId),
                     ),
                   );
                 },
-              );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (_, __) => ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              itemCount: group.memberIds.length,
-              itemBuilder: (context, index) {
-                final memberId = group.memberIds[index];
-                return Card(
-                  child: ListTile(
-                    leading: Stack(
-                      children: [
-                        CircleAvatar(
-                          child: Text(memberId.substring(0, 1).toUpperCase()),
-                        ),
-                        if (group.createdBy == memberId)
-                          Positioned(
-                            right: 0,
-                            bottom: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: const BoxDecoration(
-                                color: Colors.blue,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.star,
-                                size: 12,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    title: Text('Miembro ${index + 1}'),
-                    subtitle: Text(memberId),
-                  ),
-                );
-              },
+              ),
             ),
           ),
         ),
@@ -1449,104 +1549,85 @@ class _AccountsTab extends ConsumerStatefulWidget {
 class _AccountsTabState extends ConsumerState<_AccountsTab> {
   @override
   Widget build(BuildContext context) {
-    final ref = this.ref;
     final debtsAsync = ref.watch(groupDebtsProvider(widget.groupId));
     final groupAsync = ref.watch(groupProvider(widget.groupId));
+
+    Widget _buildLoadingList() => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          ],
+        );
+
+    Widget _buildMessageList(String message) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            const SizedBox(height: 120),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        );
+
+    Widget _buildErrorList(String message) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16.0),
+          children: [
+            Text(
+              message,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        );
 
     return groupAsync.when(
       data: (group) {
         final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
 
+        Future<void> refreshAccounts() async {
+          ref.invalidate(groupMembersProvider(group.memberIds));
+          ref.invalidate(groupDebtsProvider(widget.groupId));
+          ref.invalidate(groupBalanceProvider(widget.groupId));
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        Widget wrapWithRefresh(Widget child) => RefreshIndicator(
+              onRefresh: refreshAccounts,
+              child: child,
+            );
+
         return membersAsync.when(
           data: (members) {
-            final membersMap = <String, User>{};
-            for (final member in members) {
-              membersMap[member.id] = member;
-            }
+            final membersMap = <String, User>{
+              for (final member in members) member.id: member,
+            };
 
-            return debtsAsync.when(
-              data: (debts) {
-                if (debts.isEmpty) {
-                  return const Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(16.0),
-                      child: Text(
-                        'No hay deudas pendientes.\nTodos están al día.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.all(16.0),
-                  itemCount: debts.length,
-                  itemBuilder: (context, index) {
-                    final debt = debts[index];
-                    final fromUser = membersMap[debt.fromUserId];
-                    final toUser = membersMap[debt.toUserId];
-
-                    final fromName = fromUser?.name ??
-                        'Usuario ${debt.fromUserId.substring(0, 8)}';
-                    final toName = toUser?.name ??
-                        'Usuario ${debt.toUserId.substring(0, 8)}';
-
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12.0),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Colors.orange,
-                          child: Icon(Icons.arrow_forward, color: Colors.white),
-                        ),
-                        title: Text('$fromName debe a $toName'),
-                        subtitle: Text(
-                          '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange,
-                          ),
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(
-                            Icons.check_circle,
-                            color: Colors.green,
-                          ),
-                          onPressed: () => _showSettleDebtDialog(
-                            context,
-                            ref,
-                            debt,
-                            fromName,
-                            toName,
-                            widget.groupId,
-                          ),
-                          tooltip: 'Liquidar deuda',
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-              loading: () => const Center(child: CircularProgressIndicator()),
-              error: (error, stack) => Center(
-                child: Text('Error al cargar deudas: $error'),
-              ),
-            );
-          },
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (_, __) => debtsAsync.when(
-            data: (debts) {
+            Widget buildDebtsContent(List<Debt> debts) {
               if (debts.isEmpty) {
-                return const Center(
-                  child: Text('No hay deudas pendientes'),
+                return _buildMessageList(
+                  'No hay deudas pendientes.\nTodos están al día.',
                 );
               }
+
               return ListView.builder(
+                physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16.0),
                 itemCount: debts.length,
                 itemBuilder: (context, index) {
                   final debt = debts[index];
+                  final fromUser = membersMap[debt.fromUserId];
+                  final toUser = membersMap[debt.toUserId];
+
+                  final fromName = fromUser?.name ??
+                      'Usuario ${debt.fromUserId.substring(0, 8)}';
+                  final toName = toUser?.name ??
+                      'Usuario ${debt.toUserId.substring(0, 8)}';
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12.0),
                     child: ListTile(
@@ -1554,9 +1635,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                         backgroundColor: Colors.orange,
                         child: Icon(Icons.arrow_forward, color: Colors.white),
                       ),
-                      title: Text(
-                        'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}',
-                      ),
+                      title: Text('$fromName debe a $toName'),
                       subtitle: Text(
                         '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
                         style: const TextStyle(
@@ -1565,20 +1644,81 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                           color: Colors.orange,
                         ),
                       ),
+                      trailing: IconButton(
+                        icon: const Icon(
+                          Icons.check_circle,
+                          color: Colors.green,
+                        ),
+                        onPressed: () => _showSettleDebtDialog(
+                          context,
+                          ref,
+                          debt,
+                          fromName,
+                          toName,
+                          widget.groupId,
+                        ),
+                        tooltip: 'Liquidar deuda',
+                      ),
                     ),
                   );
                 },
               );
-            },
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (error, stack) => Center(
-              child: Text('Error al cargar deudas: $error'),
+            }
+
+            return wrapWithRefresh(
+              debtsAsync.when(
+                data: buildDebtsContent,
+                loading: _buildLoadingList,
+                error: (error, _) =>
+                    _buildErrorList('Error al cargar deudas: $error'),
+              ),
+            );
+          },
+          loading: () => wrapWithRefresh(_buildLoadingList()),
+          error: (_, __) => wrapWithRefresh(
+            debtsAsync.when(
+              data: (debts) {
+                if (debts.isEmpty) {
+                  return _buildMessageList('No hay deudas pendientes');
+                }
+                return ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.all(16.0),
+                  itemCount: debts.length,
+                  itemBuilder: (context, index) {
+                    final debt = debts[index];
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12.0),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.orange,
+                          child: Icon(Icons.arrow_forward, color: Colors.white),
+                        ),
+                        title: Text(
+                          'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}',
+                        ),
+                        subtitle: Text(
+                          '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.orange,
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: _buildLoadingList,
+              error: (error, _) =>
+                  _buildErrorList('Error al cargar deudas: $error'),
             ),
           ),
         );
       },
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, stack) => Center(child: Text('Error: $error')),
+      loading: _buildLoadingList,
+      error: (error, _) => _buildErrorList('Error: $error'),
     );
   }
 
