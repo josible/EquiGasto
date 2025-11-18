@@ -28,7 +28,8 @@ class AppUpdateService {
       if (latestVersion == null || updateUrl == null) return;
 
       final packageInfo = await PackageInfo.fromPlatform();
-      final currentVersion = packageInfo.version;
+      // Incluir el build number en el formato "X.Y.Z+B"
+      final currentVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
 
       final needsMandatoryUpdate = minSupportedVersion != null &&
           _isVersionLower(currentVersion, minSupportedVersion);
@@ -78,21 +79,36 @@ class AppUpdateService {
   }
 
   bool _isVersionLower(String current, String target) {
-    final currentParts =
-        current.split('.').map(int.tryParse).whereType<int>().toList();
-    final targetParts =
-        target.split('.').map(int.tryParse).whereType<int>().toList();
+    // Separar versión y build number (formato: "X.Y.Z+B" o "X.Y.Z")
+    final currentParts = current.split('+');
+    final targetParts = target.split('+');
+    
+    final currentVersion = currentParts[0];
+    final currentBuild = currentParts.length > 1 ? int.tryParse(currentParts[1]) ?? 0 : 0;
+    
+    final targetVersion = targetParts[0];
+    final targetBuild = targetParts.length > 1 ? int.tryParse(targetParts[1]) ?? 0 : 0;
+    
+    // Comparar versión (X.Y.Z)
+    final currentVersionParts =
+        currentVersion.split('.').map(int.tryParse).whereType<int>().toList();
+    final targetVersionParts =
+        targetVersion.split('.').map(int.tryParse).whereType<int>().toList();
 
-    final maxLength = currentParts.length > targetParts.length
-        ? currentParts.length
-        : targetParts.length;
+    final maxLength = currentVersionParts.length > targetVersionParts.length
+        ? currentVersionParts.length
+        : targetVersionParts.length;
 
     for (var i = 0; i < maxLength; i++) {
-      final currentValue = i < currentParts.length ? currentParts[i] : 0;
-      final targetValue = i < targetParts.length ? targetParts[i] : 0;
+      final currentValue = i < currentVersionParts.length ? currentVersionParts[i] : 0;
+      final targetValue = i < targetVersionParts.length ? targetVersionParts[i] : 0;
       if (currentValue < targetValue) return true;
       if (currentValue > targetValue) return false;
     }
+    
+    // Si las versiones son iguales, comparar build number
+    if (currentBuild < targetBuild) return true;
+    if (currentBuild > targetBuild) return false;
 
     return false;
   }

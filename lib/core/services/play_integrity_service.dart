@@ -11,6 +11,7 @@ class PlayIntegrityService {
     try {
       await FirebaseAppCheck.instance.activate(
         // En Android, usa Play Integrity en producción
+        // ignore: deprecated_member_use
         androidProvider: kDebugMode
             ? AndroidProvider.debug
             : AndroidProvider.playIntegrity,
@@ -31,7 +32,7 @@ class PlayIntegrityService {
   Future<String?> getToken({bool forceRefresh = false}) async {
     try {
       final token = await FirebaseAppCheck.instance.getToken(forceRefresh);
-      return token?.token;
+      return token;
     } catch (e) {
       debugPrint('❌ Error al obtener token de App Check: $e');
       return null;
