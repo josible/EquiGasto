@@ -3,17 +3,22 @@ import '../../../../core/utils/result.dart';
 import '../../domain/entities/notification.dart';
 import '../../domain/repositories/notifications_repository.dart';
 import '../datasources/notifications_local_datasource.dart';
+import '../datasources/notifications_remote_datasource.dart';
 
 class NotificationsRepositoryImpl implements NotificationsRepository {
   final NotificationsLocalDataSource localDataSource;
+  final NotificationsRemoteDataSource remoteDataSource;
 
-  NotificationsRepositoryImpl(this.localDataSource);
+  NotificationsRepositoryImpl(
+    this.localDataSource,
+    this.remoteDataSource,
+  );
 
   @override
   Future<Result<List<AppNotification>>> getUserNotifications(
       String userId) async {
     try {
-      final notifications = await localDataSource.getUserNotifications(userId);
+      final notifications = await remoteDataSource.getUserNotifications(userId);
       return Success(notifications);
     } catch (e) {
       return Error(ServerFailure('Error al obtener notificaciones: $e'));
@@ -23,7 +28,7 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   @override
   Future<Result<void>> markAsRead(String notificationId) async {
     try {
-      await localDataSource.markAsRead(notificationId);
+      await remoteDataSource.markAsRead(notificationId);
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al marcar notificación: $e'));
@@ -33,7 +38,7 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   @override
   Future<Result<void>> markAllAsRead(String userId) async {
     try {
-      await localDataSource.markAllAsRead(userId);
+      await remoteDataSource.markAllAsRead(userId);
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al marcar todas como leídas: $e'));
@@ -43,8 +48,13 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   @override
   Future<Result<int>> getUnreadCount(String userId) async {
     try {
-      final count = await localDataSource.getUnreadCount(userId);
-      return Success(count);
+      try {
+        final count = await remoteDataSource.getUnreadCount(userId);
+        return Success(count);
+      } catch (e) {
+        final fallback = await localDataSource.getUnreadCount(userId);
+        return Success(fallback);
+      }
     } catch (e) {
       return Error(ServerFailure('Error al obtener conteo: $e'));
     }
@@ -53,6 +63,7 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   @override
   Future<Result<void>> createNotification(AppNotification notification) async {
     try {
+      await remoteDataSource.saveNotification(notification);
       await localDataSource.saveNotification(notification);
       return const Success(null);
     } catch (e) {

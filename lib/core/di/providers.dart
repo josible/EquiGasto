@@ -2,6 +2,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -19,12 +21,14 @@ import '../../features/expenses/data/datasources/expenses_remote_datasource.dart
 import '../../features/expenses/data/repositories/expenses_repository_impl.dart';
 import '../../features/expenses/domain/repositories/expenses_repository.dart';
 import '../../features/notifications/data/datasources/notifications_local_datasource.dart';
+import '../../features/notifications/data/datasources/notifications_remote_datasource.dart';
 import '../../features/notifications/data/repositories/notifications_repository_impl.dart';
 import '../../features/notifications/domain/repositories/notifications_repository.dart';
 import '../../features/notifications/domain/usecases/create_notification_usecase.dart';
 import 'null_datasources.dart' as null_ds;
 import '../services/local_auth_service.dart';
 import '../services/credentials_storage.dart';
+import '../services/push_notifications_service.dart';
 
 // Firebase
 final firebaseAuthProvider = Provider<firebase_auth.FirebaseAuth>((ref) {
@@ -51,6 +55,15 @@ final credentialsStorageProvider = Provider<CredentialsStorage>((ref) {
 
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
+});
+
+final firebaseMessagingProvider = Provider<FirebaseMessaging>((ref) {
+  return FirebaseMessaging.instance;
+});
+
+final flutterLocalNotificationsPluginProvider =
+    Provider<FlutterLocalNotificationsPlugin>((ref) {
+  return FlutterLocalNotificationsPlugin();
 });
 
 final googleSignInProvider = Provider<GoogleSignIn>((ref) {
@@ -113,6 +126,12 @@ final notificationsLocalDataSourceProvider =
   );
 });
 
+final notificationsRemoteDataSourceProvider =
+    Provider<NotificationsRemoteDataSource>((ref) {
+  final firestore = ref.watch(firebaseFirestoreProvider);
+  return NotificationsRemoteDataSourceImpl(firestore);
+});
+
 // Repositories
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final localDataSource = ref.watch(authLocalDataSourceProvider);
@@ -152,12 +171,20 @@ final expensesRepositoryProvider = Provider<ExpensesRepository>((ref) {
 
 final notificationsRepositoryProvider =
     Provider<NotificationsRepository>((ref) {
-  final dataSource = ref.watch(notificationsLocalDataSourceProvider);
-  return NotificationsRepositoryImpl(dataSource);
+  final localDataSource = ref.watch(notificationsLocalDataSourceProvider);
+  final remoteDataSource = ref.watch(notificationsRemoteDataSourceProvider);
+  return NotificationsRepositoryImpl(localDataSource, remoteDataSource);
 });
 
 final createNotificationUseCaseProvider =
     Provider<CreateNotificationUseCase>((ref) {
   final repository = ref.watch(notificationsRepositoryProvider);
   return CreateNotificationUseCase(repository);
+});
+
+final pushNotificationsServiceProvider =
+    Provider<PushNotificationsService>((ref) {
+  final messaging = ref.watch(firebaseMessagingProvider);
+  final localNotifications = ref.watch(flutterLocalNotificationsPluginProvider);
+  return PushNotificationsService(ref, messaging, localNotifications);
 });

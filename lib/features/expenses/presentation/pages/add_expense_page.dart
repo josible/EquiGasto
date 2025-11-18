@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:uuid/uuid.dart';
 import '../../domain/entities/expense.dart';
 import '../../../../core/di/providers.dart';
 import '../providers/expenses_provider.dart';
+import '../../../groups/domain/entities/group.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../groups/presentation/providers/group_members_provider.dart';
 import '../../../groups/presentation/providers/group_balance_provider.dart';
+import '../../../notifications/domain/entities/notification.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -32,6 +35,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
   DateTime _selectedDate = DateTime.now();
   String? _selectedPaidBy;
   final Map<String, bool> _selectedMembers = {};
+  Group? _currentGroup;
   bool _isLoading = false;
 
   bool get _isEditing => widget.initialExpense != null;
@@ -63,9 +67,20 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
     result.when(
       success: (group) {
         setState(() {
-          _selectedPaidBy = _isEditing
-              ? widget.initialExpense!.paidBy
-              : group.memberIds.first;
+          _currentGroup = group;
+          if (_isEditing) {
+            _selectedPaidBy = widget.initialExpense!.paidBy;
+          } else {
+            // Seleccionar el usuario actual por defecto
+            final currentUser = ref.read(authStateProvider).value;
+            if (currentUser != null &&
+                group.memberIds.contains(currentUser.id)) {
+              _selectedPaidBy = currentUser.id;
+            } else {
+              // Fallback al primer miembro si el usuario actual no está en el grupo
+              _selectedPaidBy = group.memberIds.first;
+            }
+          }
           _selectedMembers.clear();
           for (final memberId in group.memberIds) {
             if (_isEditing) {
@@ -172,8 +187,11 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
 
       if (!mounted) return;
 
-      result.when(
-        success: (_) {
+      await result.when(
+        success: (expense) async {
+          if (!_isEditing) {
+            await _notifyParticipants(expense);
+          }
           // Invalidar providers para refrescar la lista de gastos, deudas y balances
           ref.invalidate(groupExpensesProvider(widget.groupId));
           ref.invalidate(groupDebtsProvider(widget.groupId));
@@ -197,7 +215,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
             });
           }
         },
-        error: (failure) {
+        error: (failure) async {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
@@ -220,6 +238,47 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _notifyParticipants(Expense expense) async {
+    final group = _currentGroup;
+    final currentUser = ref.read(authStateProvider).value;
+    if (group == null || currentUser == null) return;
+
+    final affectedUserIds = expense.splitAmounts.keys.toSet()
+      ..remove(currentUser.id);
+    if (affectedUserIds.isEmpty) return;
+
+    final notificationUseCase = ref.read(createNotificationUseCaseProvider);
+    final createdAt = DateTime.now();
+    final amountLabel = expense.amount.toStringAsFixed(2);
+
+    for (final userId in affectedUserIds) {
+      final notification = AppNotification(
+        id: const Uuid().v4(),
+        userId: userId,
+        type: NotificationType.expenseAdded,
+        title: 'Nuevo gasto en ${group.name}',
+        message:
+            '${currentUser.name} agregó ${expense.description} por €$amountLabel',
+        data: {
+          'groupId': expense.groupId,
+          'expenseId': expense.id,
+          'amount': expense.amount,
+          'description': expense.description,
+        },
+        isRead: false,
+        createdAt: createdAt,
+      );
+
+      final result = await notificationUseCase(notification);
+      result.when(
+        success: (_) {},
+        error: (failure) {
+          debugPrint('Error al crear notificación: ${failure.message}');
+        },
+      );
     }
   }
 

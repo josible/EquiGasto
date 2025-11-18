@@ -3,15 +3,22 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:app_links/app_links.dart';
 import 'firebase_options.dart';
 import 'core/router/app_router.dart';
-import 'core/constants/route_names.dart';
+import 'core/di/providers.dart';
 
 const String _googleServerClientId =
     '363848646486-amk51ebf9fqvbqufmk3a9g2a78b014t8.apps.googleusercontent.com';
+
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,6 +26,8 @@ Future<void> main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   unawaited(MobileAds.instance.initialize());
   unawaited(
@@ -75,8 +84,21 @@ void _handleDeepLink(Uri uri) {
   }
 }
 
-class EquiGastoApp extends StatelessWidget {
+class EquiGastoApp extends ConsumerStatefulWidget {
   const EquiGastoApp({super.key});
+
+  @override
+  ConsumerState<EquiGastoApp> createState() => _EquiGastoAppState();
+}
+
+class _EquiGastoAppState extends ConsumerState<EquiGastoApp> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(pushNotificationsServiceProvider).initialize();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
