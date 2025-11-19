@@ -14,7 +14,11 @@ import '../../features/notifications/presentation/pages/notifications_page.dart'
 import '../constants/route_names.dart';
 
 class AppRouter {
+  static final GlobalKey<NavigatorState> navigatorKey =
+      GlobalKey<NavigatorState>();
+
   static final GoRouter router = GoRouter(
+    navigatorKey: navigatorKey,
     initialLocation: RouteNames.login,
     routes: [
       GoRoute(

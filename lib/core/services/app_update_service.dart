@@ -1,42 +1,63 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/material.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher_string.dart';
 
 class AppUpdateService {
-  AppUpdateService(this._firestore);
+  AppUpdateService(this._remoteConfig);
 
-  final FirebaseFirestore _firestore;
+  final FirebaseRemoteConfig _remoteConfig;
 
-  static const String _collection = 'app_config';
-  static const String _document = 'mobile';
+  static const String _latestVersionKey = 'latestVersion';
+  static const String _minSupportedVersionKey = 'minSupportedVersion';
+  static const String _messageKey = 'message';
+  static const String _updateUrlKey = 'updateUrl';
 
   Future<void> checkForUpdates(BuildContext context) async {
     try {
-      final snapshot =
-          await _firestore.collection(_collection).doc(_document).get();
-      if (!snapshot.exists) return;
-      final data = snapshot.data();
-      if (data == null) return;
+      await _remoteConfig.setConfigSettings(RemoteConfigSettings(
+        fetchTimeout: const Duration(seconds: 5),
+        minimumFetchInterval: const Duration(hours: 1),
+      ));
+      await _remoteConfig.setDefaults(const {
+        _latestVersionKey: '',
+        _minSupportedVersionKey: '',
+        _messageKey: 'Hay una nueva versión de EquiGasto disponible.',
+        _updateUrlKey: '',
+      });
 
-      final latestVersion = data['latestVersion'] as String?;
-      final minSupportedVersion = data['minSupportedVersion'] as String?;
-      final updateUrl = data['updateUrl'] as String?;
-      final message = data['message'] as String? ??
-          'Hay una nueva versión de EquiGasto disponible.';
+      final activated = await _remoteConfig.fetchAndActivate();
+      debugPrint('🛰️ Remote Config actualizado: $activated');
 
-      if (latestVersion == null || updateUrl == null) return;
+      final latestVersion = _remoteConfig.getString(_latestVersionKey).trim();
+      final minSupportedVersion =
+          _remoteConfig.getString(_minSupportedVersionKey).trim();
+      final updateUrl = _remoteConfig.getString(_updateUrlKey).trim();
+      final message = _remoteConfig.getString(_messageKey).trim().isEmpty
+          ? 'Hay una nueva versión de EquiGasto disponible.'
+          : _remoteConfig.getString(_messageKey).trim();
+
+      if (latestVersion.isEmpty || updateUrl.isEmpty) {
+        debugPrint('ℹ️ Remote Config sin latestVersion o updateUrl. Se omite.');
+        return;
+      }
 
       final packageInfo = await PackageInfo.fromPlatform();
       // Incluir el build number en el formato "X.Y.Z+B"
       final currentVersion = '${packageInfo.version}+${packageInfo.buildNumber}';
 
-      final needsMandatoryUpdate = minSupportedVersion != null &&
+      final needsMandatoryUpdate = minSupportedVersion.isNotEmpty &&
           _isVersionLower(currentVersion, minSupportedVersion);
       final hasOptionalUpdate = _isVersionLower(currentVersion, latestVersion);
 
-      if (!needsMandatoryUpdate && !hasOptionalUpdate) return;
-      if (!context.mounted) return;
+      if (!needsMandatoryUpdate && !hasOptionalUpdate) {
+        debugPrint('✅ No se necesita actualización (current: $currentVersion)');
+        return;
+      }
+      if (!context.mounted) {
+        debugPrint('ℹ️ Contexto no montado. Se omite diálogo de actualización.');
+        return;
+      }
 
       await showDialog<void>(
         context: context,
@@ -73,8 +94,9 @@ class AppUpdateService {
           );
         },
       );
-    } catch (_) {
-      // Silenciar errores de actualización para no bloquear el inicio
+    } catch (e, stack) {
+      debugPrint('⚠️ Error verificando actualizaciones: $e');
+      debugPrint('$stack');
     }
   }
 

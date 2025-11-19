@@ -24,6 +24,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   bool _isUnlocked = false;
   bool _isAuthenticating = true;
   String? _authError;
+  bool _updatesChecked = false;
 
   @override
   void initState() {
@@ -49,6 +50,15 @@ class _HomePageState extends ConsumerState<HomePage> {
         _authError =
             'No se pudo verificar tu identidad. Usa tu huella o patrón para continuar.';
       }
+    });
+  }
+
+  void _checkForUpdatesIfNeeded() {
+    if (_updatesChecked) return;
+    _updatesChecked = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(appUpdateServiceProvider).checkForUpdates(context);
     });
   }
 
@@ -110,6 +120,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+
+        _checkForUpdatesIfNeeded();
 
         final unreadCountAsync =
             ref.watch(unreadNotificationsCountProvider(user.id));

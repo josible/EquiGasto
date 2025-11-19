@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:local_auth/local_auth.dart';
@@ -58,6 +59,9 @@ final credentialsStorageProvider = Provider<CredentialsStorage>((ref) {
 final firebaseFirestoreProvider = Provider<FirebaseFirestore>((ref) {
   return FirebaseFirestore.instance;
 });
+
+final firebaseRemoteConfigProvider =
+    Provider<FirebaseRemoteConfig>((ref) => FirebaseRemoteConfig.instance);
 
 final firebaseMessagingProvider = Provider<FirebaseMessaging>((ref) {
   return FirebaseMessaging.instance;
@@ -192,8 +196,8 @@ final pushNotificationsServiceProvider =
 });
 
 final appUpdateServiceProvider = Provider<AppUpdateService>((ref) {
-  final firestore = ref.watch(firebaseFirestoreProvider);
-  return AppUpdateService(firestore);
+  final remoteConfig = ref.watch(firebaseRemoteConfigProvider);
+  return AppUpdateService(remoteConfig);
 });
 
 final playIntegrityServiceProvider = Provider<PlayIntegrityService>((ref) {

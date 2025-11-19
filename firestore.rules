@@ -89,6 +89,14 @@ service cloud.firestore {
       // No se permite eliminar códigos de invitación (o solo el creador si queremos)
       allow delete: if false;
     }
+
+    // Configuración pública de la app (versiones mínimas, etc.)
+    match /app_config/{document=**} {
+      // Cualquier cliente puede leer esta configuración para saber si debe actualizarse
+      allow read: if true;
+      // Solo el backend/console (privilegio admin) debería escribir
+      allow write: if false;
+    }
   }
 }
 
