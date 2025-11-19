@@ -38,19 +38,17 @@ class NotificationsRemoteDataSourceImpl
 
   @override
   Future<void> markAsRead(String notificationId) {
-    return _collection.doc(notificationId).update({'isRead': true});
+    return _collection.doc(notificationId).delete();
   }
 
   @override
   Future<void> markAllAsRead(String userId) async {
     final batch = firestore.batch();
-    final querySnapshot = await _collection
-        .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .get();
+    final querySnapshot =
+        await _collection.where('userId', isEqualTo: userId).get();
 
     for (final doc in querySnapshot.docs) {
-      batch.update(doc.reference, {'isRead': true});
+      batch.delete(doc.reference);
     }
 
     await batch.commit();
@@ -58,10 +56,8 @@ class NotificationsRemoteDataSourceImpl
 
   @override
   Future<int> getUnreadCount(String userId) async {
-    final querySnapshot = await _collection
-        .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .get();
+    final querySnapshot =
+        await _collection.where('userId', isEqualTo: userId).get();
     return querySnapshot.docs.length;
   }
 
@@ -78,7 +74,6 @@ class NotificationsRemoteDataSourceImpl
   Stream<int> watchUnreadCount(String userId) {
     return _collection
         .where('userId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
         .snapshots()
         .map((snapshot) => snapshot.docs.length);
   }
@@ -97,7 +92,7 @@ class NotificationsRemoteDataSourceImpl
       title: data['title'] as String,
       message: data['message'] as String,
       data: (data['data'] as Map<String, dynamic>?)?.cast<String, dynamic>(),
-      isRead: data['isRead'] as bool? ?? false,
+      isRead: false,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
     );
   }
@@ -110,7 +105,6 @@ class NotificationsRemoteDataSourceImpl
       'title': notification.title,
       'message': notification.message,
       'data': notification.data,
-      'isRead': notification.isRead,
       'createdAt': Timestamp.fromDate(notification.createdAt),
     };
   }

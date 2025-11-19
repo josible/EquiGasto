@@ -37,9 +37,7 @@ class NotificationsLocalDataSourceImpl implements NotificationsLocalDataSource {
     );
 
     if (index >= 0) {
-      final notificationMap = notificationsList[index] as Map<String, dynamic>;
-      notificationMap['isRead'] = true;
-      notificationsList[index] = notificationMap;
+      notificationsList.removeAt(index);
       await prefs.setString('notifications', jsonEncode(notificationsList));
     }
   }
@@ -49,13 +47,10 @@ class NotificationsLocalDataSourceImpl implements NotificationsLocalDataSource {
     final notificationsJson = prefs.getString('notifications') ?? '[]';
     final List<dynamic> notificationsList = jsonDecode(notificationsJson);
     
-    for (var i = 0; i < notificationsList.length; i++) {
-      final notificationMap = notificationsList[i] as Map<String, dynamic>;
-      if (notificationMap['userId'] == userId && notificationMap['isRead'] == false) {
-        notificationMap['isRead'] = true;
-        notificationsList[i] = notificationMap;
-      }
-    }
+    notificationsList.removeWhere((json) {
+      final notificationMap = json as Map<String, dynamic>;
+      return notificationMap['userId'] == userId;
+    });
 
     await prefs.setString('notifications', jsonEncode(notificationsList));
   }
@@ -63,7 +58,7 @@ class NotificationsLocalDataSourceImpl implements NotificationsLocalDataSource {
   @override
   Future<int> getUnreadCount(String userId) async {
     final notifications = await getUserNotifications(userId);
-    return notifications.where((n) => !n.isRead).length;
+    return notifications.length;
   }
 
   @override
@@ -88,7 +83,7 @@ class NotificationsLocalDataSourceImpl implements NotificationsLocalDataSource {
       title: json['title'] as String,
       message: json['message'] as String,
       data: json['data'] as Map<String, dynamic>?,
-      isRead: json['isRead'] as bool,
+      isRead: false,
       createdAt: DateTime.parse(json['createdAt'] as String),
     );
   }
@@ -101,7 +96,6 @@ class NotificationsLocalDataSourceImpl implements NotificationsLocalDataSource {
       'title': notification.title,
       'message': notification.message,
       'data': notification.data,
-      'isRead': notification.isRead,
       'createdAt': notification.createdAt.toIso8601String(),
     };
   }

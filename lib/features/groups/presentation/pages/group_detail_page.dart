@@ -20,6 +20,7 @@ import '../providers/group_members_provider.dart';
 import '../providers/group_balance_provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../../core/widgets/ad_banner.dart';
 
 class GroupDetailPage extends ConsumerStatefulWidget {
   final String groupId;
@@ -1541,7 +1542,7 @@ class _GroupBalanceHeader extends ConsumerWidget {
     final groupAsync = ref.watch(groupProvider(groupId));
 
     return groupAsync.when(
-      data: (group) => _buildContent(group.name),
+      data: (group) => _buildContent(context, group.name),
       loading: () => _buildBackground(
         child: const Center(
           child: CircularProgressIndicator(color: Colors.white),
@@ -1556,46 +1557,60 @@ class _GroupBalanceHeader extends ConsumerWidget {
     );
   }
 
-  Widget _buildContent(String groupName) {
+  Widget _buildContent(BuildContext context, String groupName) {
     return _buildBackground(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-        child: Row(
+        child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Icono de foto
-            Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.2),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.3),
-                  width: 2,
+            GestureDetector(
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Premium, disponible próximamente'),
+                  ),
+                );
+              },
+              child: Container(
+                width: 72,
+                height: 72,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 2,
+                  ),
                 ),
-              ),
-              child: const Icon(
-                Icons.add_photo_alternate_outlined,
-                color: Colors.white,
-                size: 40,
+                child: const Icon(
+                  Icons.add_photo_alternate_outlined,
+                  color: Colors.white,
+                  size: 38,
+                ),
               ),
             ),
-            const SizedBox(width: 16),
-            // Nombre del grupo
-            Expanded(
-              child: Text(
-                groupName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            const SizedBox(height: 8),
+            Text(
+              groupName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const AdBanner(),
             ),
           ],
         ),

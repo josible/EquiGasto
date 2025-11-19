@@ -121,45 +121,55 @@ class _HomePageState extends ConsumerState<HomePage> {
         return DefaultTabController(
           initialIndex: widget.initialTabIndex,
           length: 3,
-          child: Scaffold(
-            appBar: AppBar(
-              title: const Text('EquiGasto'),
-              actions: [
-                IconButton(
-                  icon: _BadgeIcon(
-                    icon: Icons.notifications,
-                    count: unreadCount,
-                  ),
-                  onPressed: () => context.push(RouteNames.notifications),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.person),
-                  onPressed: () => context.push(RouteNames.profile),
-                ),
-              ],
-              bottom: const TabBar(
-                tabs: [
-                  Tab(icon: Icon(Icons.home), text: 'Inicio'),
-                  Tab(icon: Icon(Icons.group), text: 'Grupos'),
-                  Tab(icon: Icon(Icons.settings), text: 'Configuración'),
-                ],
-              ),
-            ),
-            body: Column(
-              children: [
-                const Expanded(
-                  child: TabBarView(
-                    children: [
-                      _HomeTab(),
-                      GroupsListPage(),
-                      SettingsPage(),
-                    ],
-                  ),
-                ),
-                // Banner publicitario en la parte inferior
-                const AdBanner(),
-              ],
-            ),
+          child: Builder(
+            builder: (context) {
+              final tabController = DefaultTabController.of(context)!;
+              return AnimatedBuilder(
+                animation: tabController,
+                builder: (context, _) {
+                  final isHomeTab = tabController.index == 0;
+                  return Scaffold(
+                    appBar: AppBar(
+                      title: const Text('EquiGasto'),
+                      actions: [
+                        IconButton(
+                          icon: _BadgeIcon(
+                            icon: Icons.notifications,
+                            count: unreadCount,
+                          ),
+                          onPressed: () => context.push(RouteNames.notifications),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.person),
+                          onPressed: () => context.push(RouteNames.profile),
+                        ),
+                      ],
+                      bottom: const TabBar(
+                        tabs: [
+                          Tab(icon: Icon(Icons.home), text: 'Inicio'),
+                          Tab(icon: Icon(Icons.group), text: 'Grupos'),
+                          Tab(icon: Icon(Icons.settings), text: 'Configuración'),
+                        ],
+                      ),
+                    ),
+                    body: Column(
+                      children: [
+                        const Expanded(
+                          child: TabBarView(
+                            children: [
+                              _HomeTab(),
+                              GroupsListPage(),
+                              SettingsPage(),
+                            ],
+                          ),
+                        ),
+                        if (!isHomeTab) const AdBanner(),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
         );
       },
@@ -342,6 +352,8 @@ class _HomeTab extends ConsumerWidget {
                 onTap: () => context.push(RouteNames.notifications),
               ),
             ),
+            const SizedBox(height: 16),
+            const AdBanner(),
           ],
         );
       },

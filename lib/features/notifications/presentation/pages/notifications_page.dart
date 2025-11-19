@@ -21,18 +21,15 @@ class NotificationsPage extends ConsumerWidget {
     }
 
     final notificationsRepository = ref.watch(notificationsRepositoryProvider);
-    final unreadCountAsync =
-        ref.watch(unreadNotificationsCountProvider(user.id));
-    final unreadCount = unreadCountAsync.maybeWhen(
-      data: (count) => count,
-      orElse: () => 0,
-    );
+    final notificationsAsync = ref.watch(userNotificationsProvider(user.id));
+    final notificationsData =
+        notificationsAsync.maybeWhen(data: (data) => data, orElse: () => null);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Notificaciones'),
         actions: [
-          if (unreadCount > 0)
+          if ((notificationsData?.isNotEmpty ?? false))
             TextButton(
               onPressed: () async {
                 final result =
@@ -46,11 +43,11 @@ class NotificationsPage extends ConsumerWidget {
                   },
                 );
               },
-              child: const Text('Marcar todo'),
+              child: const Text('Eliminar todo'),
             ),
         ],
       ),
-      body: ref.watch(userNotificationsProvider(user.id)).when(
+      body: notificationsAsync.when(
             data: (notifications) {
               if (notifications.isEmpty) {
                 return const _EmptyNotifications();
@@ -82,18 +79,16 @@ class NotificationsPage extends ConsumerWidget {
                         style: const TextStyle(fontSize: 12),
                       ),
                       onTap: () async {
-                        if (!notification.isRead) {
-                          final result = await notificationsRepository
-                              .markAsRead(notification.id);
-                          result.when(
-                            success: (_) {},
-                            error: (failure) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text(failure.message)),
-                              );
-                            },
-                          );
-                        }
+                        final result = await notificationsRepository
+                            .markAsRead(notification.id);
+                        result.when(
+                          success: (_) {},
+                          error: (failure) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text(failure.message)),
+                            );
+                          },
+                        );
                       },
                     ),
                   );

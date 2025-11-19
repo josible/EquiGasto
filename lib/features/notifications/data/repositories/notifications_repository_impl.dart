@@ -29,6 +29,7 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   Future<Result<void>> markAsRead(String notificationId) async {
     try {
       await remoteDataSource.markAsRead(notificationId);
+      await localDataSource.markAsRead(notificationId);
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al marcar notificación: $e'));
@@ -39,6 +40,7 @@ class NotificationsRepositoryImpl implements NotificationsRepository {
   Future<Result<void>> markAllAsRead(String userId) async {
     try {
       await remoteDataSource.markAllAsRead(userId);
+      await localDataSource.markAllAsRead(userId);
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al marcar todas como leídas: $e'));
