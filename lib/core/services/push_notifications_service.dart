@@ -38,7 +38,17 @@ class PushNotificationsService {
     await _requestPermissions();
     await _setupLocalNotifications();
 
+    // Manejar notificaciones cuando la app está en primer plano
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+
+    // Manejar cuando el usuario toca una notificación y la app se abre
+    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+
+    // Manejar cuando la app se abre desde una notificación (app cerrada)
+    final initialMessage = await _messaging.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTap(initialMessage);
+    }
 
     _ref.listen<AsyncValue<User?>>(
       authStateProvider,
@@ -120,10 +130,22 @@ class PushNotificationsService {
           channelDescription: _androidChannel.description,
           importance: Importance.high,
           priority: Priority.high,
+          showWhen: true,
         ),
+        iOS: const DarwinNotificationDetails(),
       ),
       payload: message.data['groupId'],
     );
+  }
+
+  void _handleNotificationTap(RemoteMessage message) {
+    // Navegar a la pantalla correspondiente cuando el usuario toca la notificación
+    final groupId = message.data['groupId'];
+    if (groupId != null && groupId.isNotEmpty) {
+      // Navegar al grupo correspondiente
+      // Esto se puede implementar según tu lógica de navegación
+      debugPrint('📱 Notificación tocada - Grupo: $groupId');
+    }
   }
 
   void dispose() {

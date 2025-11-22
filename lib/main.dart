@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:app_links/app_links.dart';
@@ -15,10 +16,61 @@ import 'core/services/play_integrity_service.dart';
 const String _googleServerClientId =
     '363848646486-amk51ebf9fqvbqufmk3a9g2a78b014t8.apps.googleusercontent.com';
 
+// Canal de notificaciones para Android (debe ser el mismo que en PushNotificationsService)
+const AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
+  'expenses_updates',
+  'Alertas de gastos',
+  description: 'Notificaciones cuando se registran nuevos gastos',
+  importance: Importance.high,
+);
+
+// Instancia global del plugin de notificaciones locales para el handler de background
+final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
+    FlutterLocalNotificationsPlugin();
+
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // Inicializar notificaciones locales en el isolate de background
+  const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+  const darwinSettings = DarwinInitializationSettings();
+  const initializationSettings = InitializationSettings(
+    android: androidSettings,
+    iOS: darwinSettings,
+    macOS: darwinSettings,
+  );
+
+  await _localNotificationsPlugin.initialize(initializationSettings);
+  
+  // Crear el canal de notificaciones en Android
+  await _localNotificationsPlugin
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>()
+      ?.createNotificationChannel(_androidChannel);
+
+  // Mostrar la notificación
+  final notification = message.notification;
+  if (notification != null) {
+    await _localNotificationsPlugin.show(
+      notification.hashCode,
+      notification.title,
+      notification.body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _androidChannel.id,
+          _androidChannel.name,
+          channelDescription: _androidChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+          showWhen: true,
+        ),
+        iOS: const DarwinNotificationDetails(),
+      ),
+      payload: message.data['groupId'],
+    );
+  }
 }
 
 Future<void> main() async {
