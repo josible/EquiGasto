@@ -27,8 +27,8 @@ dependencies:
   firebase_messaging: ^16.0.4
   firebase_app_check: ^0.4.1+2
   firebase_remote_config: ^6.1.2
-  flutter_local_notifications: ^17.2.1+1
-  package_info_plus: ^8.1.1
+  flutter_local_notifications: ^19.5.0
+  package_info_plus: ^9.0.0
   
   # Publicidad
   google_mobile_ads: ^6.0.0
@@ -47,7 +47,7 @@ dependencies:
   url_launcher_linux: ^3.2.2
   url_launcher_macos: ^3.2.5
   url_launcher_windows: ^3.1.5
-  local_auth: ^2.3.0
+  local_auth: ^3.0.0
   flutter_secure_storage: ^9.0.0
   # Versiones máximas compatibles con flutter_secure_storage 9.2.x
   flutter_secure_storage_linux: ^1.2.3

@@ -17,21 +17,13 @@ class LocalAuthService {
       if (!canCheckBiometrics) {
         return await _localAuth.authenticate(
           localizedReason: 'Confirma tu identidad para continuar.',
-          options: const AuthenticationOptions(
-            biometricOnly: false,
-            stickyAuth: true,
-            useErrorDialogs: true,
-          ),
+          biometricOnly: false,
         );
       }
 
       return await _localAuth.authenticate(
         localizedReason: 'Confirma tu identidad para continuar.',
-        options: const AuthenticationOptions(
-          biometricOnly: false,
-          stickyAuth: true,
-          useErrorDialogs: true,
-        ),
+        biometricOnly: false,
       );
     } catch (e, stackTrace) {
       debugPrint('Error en autenticación biométrica: $e');
