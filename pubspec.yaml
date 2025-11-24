@@ -1,10 +1,10 @@
 name: equigasto
 description: Una aplicación móvil para reparto de gastos similar a Splitwise
 publish_to: 'none'
-version: 1.0.20+21
+version: 1.0.21+22
 
 environment:
-  sdk: '>=3.5.0 <4.0.0'
+  sdk: '>=3.10.0 <4.0.0'
 
 dependencies:
   flutter:
@@ -55,7 +55,7 @@ dependencies:
   flutter_secure_storage_platform_interface: ^1.1.2
   flutter_secure_storage_web: ^1.2.1
   flutter_secure_storage_windows: ^3.1.2
-  app_links: ^6.3.1
+  app_links: ^7.0.0
 
   # UI
   cupertino_icons: ^1.0.6
@@ -64,9 +64,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-  build_runner: ^2.4.13
+  build_runner: ^2.10.4
   riverpod_generator: ^3.0.3
-  custom_lint: ^0.8.0
+  custom_lint: ^0.8.1
   riverpod_lint: ^3.0.3
   flutter_launcher_icons: ^0.14.4
 
@@ -82,4 +82,8 @@ flutter_launcher_icons:
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "web/icons/Icon-512.png"
   android_adaptive_icon_background_color: "#FFFFFF"
+
+dependency_overrides:
+  # Forzar versión más reciente de js (descontinuado pero con parche de seguridad)
+  js: ^0.7.2
 
