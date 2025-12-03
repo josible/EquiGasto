@@ -144,11 +144,15 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final remoteDataSource = ref.watch(authRemoteDataSourceProvider);
   final userRemoteDataSource = ref.watch(userRemoteDataSourceProvider);
   final credentialsStorage = ref.watch(credentialsStorageProvider);
+  final groupsRepository = ref.watch(groupsRepositoryProvider);
+  final expensesRepository = ref.watch(expensesRepositoryProvider);
   return AuthRepositoryImpl(
     localDataSource,
     remoteDataSource,
     userRemoteDataSource,
     credentialsStorage,
+    groupsRepository,
+    expensesRepository,
   );
 });
 
@@ -160,7 +164,8 @@ final groupsRemoteDataSourceProvider = Provider<GroupsRemoteDataSource>((ref) {
 final groupsRepositoryProvider = Provider<GroupsRepository>((ref) {
   final localDataSource = ref.watch(groupsLocalDataSourceProvider);
   final remoteDataSource = ref.watch(groupsRemoteDataSourceProvider);
-  return GroupsRepositoryImpl(localDataSource, remoteDataSource);
+  final userRemoteDataSource = ref.watch(userRemoteDataSourceProvider);
+  return GroupsRepositoryImpl(localDataSource, remoteDataSource, userRemoteDataSource);
 });
 
 final expensesRemoteDataSourceProvider =

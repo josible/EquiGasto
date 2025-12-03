@@ -125,4 +125,13 @@ class AuthNotifier extends AsyncNotifier<User?> {
       error: (_) {},
     );
   }
+
+  Future<void> claimFictionalUser(String fictionalUserId) async {
+    final repository = ref.read(authRepositoryProvider);
+    final result = await repository.claimFictionalUser(fictionalUserId);
+    result.when(
+      success: (user) => setUser(user),
+      error: (_) {},
+    );
+  }
 }

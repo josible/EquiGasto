@@ -28,4 +28,6 @@ abstract class ExpensesRepository {
   Future<Result<double>> getUserBalanceInGroup(String userId, String groupId);
   Future<Result<void>> settleDebt(
       String fromUserId, String toUserId, String groupId, double amount);
+  Future<Result<void>> replaceUserIdInExpenses(String oldUserId, String newUserId);
+  Future<Result<List<Expense>>> getExpensesByUserId(String userId);
 }

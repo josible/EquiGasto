@@ -162,7 +162,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                     controller: _tabController,
                     children: [
                       _ExpensesTab(groupId: widget.groupId),
-                      _MembersTab(group: group, groupId: widget.groupId),
+                      _MembersTab(groupId: widget.groupId),
                       _AccountsTab(groupId: widget.groupId),
                     ],
                   ),
@@ -1143,29 +1143,59 @@ class _ExpensesTab extends ConsumerWidget {
 }
 
 class _MembersTab extends ConsumerWidget {
-  final group;
   final String groupId;
 
-  const _MembersTab({required this.group, required this.groupId});
+  const _MembersTab({required this.groupId});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
+    final groupAsync = ref.watch(groupProvider(groupId));
+    final currentUser = ref.watch(authStateProvider).value;
 
-    Future<void> refreshMembers() async {
-      ref.invalidate(groupMembersProvider(group.memberIds));
-      ref.invalidate(groupExpensesProvider(groupId));
-      await Future.delayed(const Duration(milliseconds: 300));
-    }
+    return groupAsync.when(
+      data: (group) {
+        final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
+        final isCreator = currentUser?.id == group.createdBy;
 
-    return Column(
+        Future<void> refreshMembers() async {
+          ref.invalidate(groupProvider(groupId));
+          ref.invalidate(groupMembersProvider(group.memberIds));
+          ref.invalidate(groupExpensesProvider(groupId));
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+
+        return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton.icon(
-            onPressed: () => _showInviteDialog(context, ref, groupId),
-            icon: const Icon(Icons.person_add),
-            label: const Text('Invitar miembro'),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () => _showInviteDialog(context, ref, groupId),
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Invitar miembro'),
+                ),
+              ),
+              if (isCreator) ...[
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () => _showCreateFictionalUserDialog(
+                      context,
+                      ref,
+                      groupId,
+                    ),
+                    icon: const Icon(Icons.person_add_alt_1),
+                    label: const Text('Crear usuario ficticio'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ],
           ),
         ),
         Expanded(
@@ -1214,11 +1244,40 @@ class _MembersTab extends ConsumerWidget {
                                 ? Colors.red
                                 : Colors.grey;
 
+                        final isFictional = member?.isFictional == true;
+                        
+                        // Verificar si el usuario puede reclamar este ficticio
+                        bool canClaim = false;
+                        if (isFictional && currentUser != null && currentUser.id != memberId) {
+                          // 1. El creador del grupo no puede reclamar
+                          final isCreator = group.createdBy == currentUser.id;
+                          
+                          // 2. Verificar si el usuario tiene gastos asociados en este grupo
+                          bool hasExpenses = false;
+                          for (final expense in expenses) {
+                            if (expense.paidBy == currentUser.id ||
+                                expense.splitAmounts.containsKey(currentUser.id)) {
+                              hasExpenses = true;
+                              break;
+                            }
+                          }
+                          
+                          // 3. El usuario ficticio no debe estar ya reclamado
+                          // (si existe y es ficticio, no ha sido reclamado aún)
+                          final isAlreadyClaimed = member == null || member.isFictional != true;
+                          
+                          // Solo puede reclamar si NO es creador, NO tiene gastos y NO está ya reclamado
+                          canClaim = !isCreator && !hasExpenses && !isAlreadyClaimed;
+                        }
                         return Card(
                           child: ListTile(
+                            isThreeLine: canClaim,
                             leading: Stack(
                               children: [
                                 CircleAvatar(
+                                  backgroundColor: isFictional
+                                      ? Colors.orange
+                                      : Colors.blue,
                                   child: Text(initial),
                                 ),
                                 if (group.createdBy == memberId)
@@ -1238,12 +1297,129 @@ class _MembersTab extends ConsumerWidget {
                                       ),
                                     ),
                                   ),
+                                if (isFictional)
+                                  Positioned(
+                                    left: 0,
+                                    bottom: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: const BoxDecoration(
+                                        color: Colors.orange,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        Icons.person_outline,
+                                        size: 12,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
-                            title: Text(displayName),
-                            subtitle: member != null
-                                ? Text(member.email)
-                                : Text(memberId),
+                            title: Row(
+                              children: [
+                                Expanded(
+                                  child: Text(displayName),
+                                ),
+                                if (isFictional) ...[
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.withOpacity(0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: const Text(
+                                      'Ficticio',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Colors.orange,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  member != null && member.email.isNotEmpty
+                                      ? member.email
+                                      : isFictional
+                                          ? 'Usuario ficticio'
+                                          : memberId,
+                                ),
+                                if (canClaim) ...[
+                                  const SizedBox(height: 4),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: ElevatedButton(
+                                      onPressed: () async {
+                                        final authRepository =
+                                            ref.read(authRepositoryProvider);
+                                        final authNotifier = ref.read(
+                                            authStateProvider.notifier);
+
+                                        final result =
+                                            await authRepository.claimFictionalUser(
+                                          memberId,
+                                        );
+
+                                        if (!context.mounted) return;
+
+                                        result.when(
+                                          success: (user) async {
+                                            authNotifier.setUser(user);
+                                            // Invalidar el grupo para que se recargue con los nuevos memberIds
+                                            ref.invalidate(groupProvider(groupId));
+                                            ref.invalidate(groupsListProvider);
+                                            await refreshMembers();
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                const SnackBar(
+                                                  content: Text(
+                                                    'Usuario ficticio reclamado correctamente',
+                                                  ),
+                                                  backgroundColor: Colors.green,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                          error: (failure) {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                  content:
+                                                      Text(failure.message),
+                                                  backgroundColor: Colors.red,
+                                                ),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        textStyle: const TextStyle(fontSize: 12),
+                                        minimumSize: const Size(0, 32),
+                                      ),
+                                      child: const Text('Reclamar'),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                             trailing: Text(
                               isPositive
                                   ? '+€${memberBalance.toStringAsFixed(2).replaceAll('.', ',')}'
@@ -1386,6 +1562,12 @@ class _MembersTab extends ConsumerWidget {
         ),
       ],
     );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => Center(
+        child: Text('Error: $error'),
+      ),
+    );
   }
 
   Future<void> _showInviteDialog(
@@ -1396,6 +1578,19 @@ class _MembersTab extends ConsumerWidget {
     await showDialog(
       context: context,
       builder: (dialogContext) => _InviteMemberDialog(
+        groupId: groupId,
+      ),
+    );
+  }
+
+  Future<void> _showCreateFictionalUserDialog(
+    BuildContext context,
+    WidgetRef ref,
+    String groupId,
+  ) async {
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => _CreateFictionalUserDialog(
         groupId: groupId,
       ),
     );
@@ -1524,6 +1719,140 @@ class _InviteMemberDialogState extends ConsumerState<_InviteMemberDialog> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Text('Invitar'),
+        ),
+      ],
+    );
+  }
+}
+
+class _CreateFictionalUserDialog extends ConsumerStatefulWidget {
+  final String groupId;
+
+  const _CreateFictionalUserDialog({
+    required this.groupId,
+  });
+
+  @override
+  ConsumerState<_CreateFictionalUserDialog> createState() =>
+      _CreateFictionalUserDialogState();
+}
+
+class _CreateFictionalUserDialogState
+    extends ConsumerState<_CreateFictionalUserDialog> {
+  bool _isLoading = false;
+  late final TextEditingController _nameController;
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleCreate() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final useCase = ref.read(addFictionalUserToGroupUseCaseProvider);
+      final result = await useCase(
+        widget.groupId,
+        _nameController.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      setState(() => _isLoading = false);
+
+      result.when(
+        success: (_) {
+          Navigator.of(context).pop();
+          // Invalidar providers para refrescar
+          ref.invalidate(groupProvider(widget.groupId));
+          ref.invalidate(groupsListProvider);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Usuario ficticio creado y agregado al grupo'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        },
+        error: (failure) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error inesperado: $e'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Crear Usuario Ficticio'),
+      content: Form(
+        key: _formKey,
+        child: TextFormField(
+          controller: _nameController,
+          decoration: const InputDecoration(
+            labelText: 'Nombre',
+            hintText: 'Nombre del usuario ficticio',
+            prefixIcon: Icon(Icons.person),
+          ),
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return 'Ingrese un nombre';
+            }
+            return null;
+          },
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: _isLoading ? null : _handleCreate,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            foregroundColor: Colors.white,
+          ),
+          child: _isLoading
+              ? const SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                )
+              : const Text('Crear'),
         ),
       ],
     );

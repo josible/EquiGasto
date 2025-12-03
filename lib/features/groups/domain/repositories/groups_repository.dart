@@ -1,5 +1,6 @@
 import '../../../../core/utils/result.dart';
 import '../entities/group.dart';
+import '../../../auth/domain/entities/user.dart';
 
 abstract class GroupsRepository {
   Future<Result<List<Group>>> getUserGroups(String userId);
@@ -12,6 +13,12 @@ abstract class GroupsRepository {
   Future<Result<String>> generateInviteCode(String groupId);
   Future<Result<Group>> getGroupByInviteCode(String inviteCode);
   Future<Result<void>> joinGroupByCode(String inviteCode, String userId);
+  Future<Result<User>> addFictionalUserToGroup(String groupId, String name);
+  Future<Result<void>> replaceFictionalUserWithRealUser(
+    String fictionalUserId,
+    String realUserId,
+  );
+  Future<Result<List<Group>>> getGroupsByMemberId(String memberId);
 }
 
 

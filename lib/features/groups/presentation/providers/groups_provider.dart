@@ -9,6 +9,7 @@ import '../../domain/usecases/generate_invite_code_usecase.dart';
 import '../../domain/usecases/get_group_by_invite_code_usecase.dart';
 import '../../domain/usecases/join_group_by_code_usecase.dart';
 import '../../domain/usecases/remove_user_from_group_usecase.dart';
+import '../../domain/usecases/add_fictional_user_to_group_usecase.dart';
 import '../../../../core/di/providers.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -54,6 +55,12 @@ final removeUserFromGroupUseCaseProvider =
     Provider<RemoveUserFromGroupUseCase>((ref) {
   final repository = ref.watch(groupsRepositoryProvider);
   return RemoveUserFromGroupUseCase(repository);
+});
+
+final addFictionalUserToGroupUseCaseProvider =
+    Provider<AddFictionalUserToGroupUseCase>((ref) {
+  final repository = ref.watch(groupsRepositoryProvider);
+  return AddFictionalUserToGroupUseCase(repository);
 });
 
 final groupByInviteCodeProvider =

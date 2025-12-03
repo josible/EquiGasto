@@ -14,6 +14,7 @@ abstract class AuthRepository {
     required String currentPassword,
     required String newPassword,
   });
+  Future<Result<User>> claimFictionalUser(String fictionalUserId);
 }
 
 

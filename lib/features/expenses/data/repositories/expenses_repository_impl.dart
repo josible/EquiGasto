@@ -325,4 +325,27 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
 
     return debts;
   }
+
+  @override
+  Future<Result<void>> replaceUserIdInExpenses(
+    String oldUserId,
+    String newUserId,
+  ) async {
+    try {
+      await remoteDataSource.replaceUserIdInExpenses(oldUserId, newUserId);
+      return const Success(null);
+    } catch (e) {
+      return Error(ServerFailure('Error al reemplazar usuario en gastos: $e'));
+    }
+  }
+
+  @override
+  Future<Result<List<Expense>>> getExpensesByUserId(String userId) async {
+    try {
+      final expenses = await remoteDataSource.getExpensesByUserId(userId);
+      return Success(expenses);
+    } catch (e) {
+      return Error(ServerFailure('Error al obtener gastos por usuario: $e'));
+    }
+  }
 }

@@ -6,12 +6,19 @@ import '../../domain/entities/group.dart';
 import '../../domain/repositories/groups_repository.dart';
 import '../datasources/groups_local_datasource.dart';
 import '../datasources/groups_remote_datasource.dart';
+import '../../../auth/domain/entities/user.dart';
+import '../../../auth/data/datasources/user_remote_datasource.dart';
 
 class GroupsRepositoryImpl implements GroupsRepository {
   final GroupsLocalDataSource localDataSource;
   final GroupsRemoteDataSource remoteDataSource;
+  final UserRemoteDataSource userRemoteDataSource;
 
-  GroupsRepositoryImpl(this.localDataSource, this.remoteDataSource);
+  GroupsRepositoryImpl(
+    this.localDataSource,
+    this.remoteDataSource,
+    this.userRemoteDataSource,
+  );
 
   @override
   Future<Result<List<Group>>> getUserGroups(String userId) async {
@@ -295,6 +302,93 @@ class GroupsRepositoryImpl implements GroupsRepository {
       return const Success(null);
     } catch (e) {
       return Error(ServerFailure('Error al unirse al grupo: $e'));
+    }
+  }
+
+  @override
+  Future<Result<User>> addFictionalUserToGroup(String groupId, String name) async {
+    try {
+      if (name.isEmpty) {
+        return const Error(ValidationFailure('El nombre es requerido'));
+      }
+
+      // Obtener grupo
+      final group = await remoteDataSource.getGroupById(groupId);
+      if (group == null) {
+        return Error(NotFoundFailure('Grupo no encontrado'));
+      }
+
+      // Crear usuario ficticio
+      final fictionalUserId = const Uuid().v4();
+      final fictionalUser = User(
+        id: fictionalUserId,
+        email: '', // Email vacío para usuarios ficticios
+        name: name,
+        avatarUrl: null,
+        createdAt: DateTime.now(),
+        isFictional: true,
+      );
+
+      // Crear usuario en Firestore
+      await userRemoteDataSource.createUser(fictionalUser);
+
+      // Agregar al grupo
+      final updatedGroup = Group(
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        createdBy: group.createdBy,
+        memberIds: [...group.memberIds, fictionalUserId],
+        createdAt: group.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      await remoteDataSource.updateGroup(updatedGroup);
+
+      // Actualizar cache local
+      try {
+        await localDataSource.saveGroup(updatedGroup);
+      } catch (e) {
+        // No crítico
+      }
+
+      return Success(fictionalUser);
+    } catch (e) {
+      return Error(ServerFailure('Error al agregar usuario ficticio: $e'));
+    }
+  }
+
+  @override
+  Future<Result<void>> replaceFictionalUserWithRealUser(
+    String fictionalUserId,
+    String realUserId,
+  ) async {
+    try {
+      // Obtener todos los grupos donde el usuario ficticio es miembro
+      final groups = await remoteDataSource.getGroupsByMemberId(fictionalUserId);
+
+      // Reemplazar en cada grupo
+      for (final group in groups) {
+        await remoteDataSource.replaceMemberInGroup(
+          group.id,
+          fictionalUserId,
+          realUserId,
+        );
+      }
+
+      return const Success(null);
+    } catch (e) {
+      return Error(ServerFailure('Error al reemplazar usuario ficticio: $e'));
+    }
+  }
+
+  @override
+  Future<Result<List<Group>>> getGroupsByMemberId(String memberId) async {
+    try {
+      final groups = await remoteDataSource.getGroupsByMemberId(memberId);
+      return Success(groups);
+    } catch (e) {
+      return Error(ServerFailure('Error al obtener grupos por miembro: $e'));
     }
   }
 }

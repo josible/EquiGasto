@@ -18,13 +18,18 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
   @override
   Future<void> createUser(User user) async {
     try {
-      await firestore.collection('users').doc(user.id).set({
+      final data = {
         'id': user.id,
         'email': user.email,
         'name': user.name,
         'avatarUrl': user.avatarUrl,
         'createdAt': Timestamp.fromDate(user.createdAt),
-      });
+      };
+      // Solo agregar isFictional si es true (para no guardar null)
+      if (user.isFictional == true) {
+        data['isFictional'] = true;
+      }
+      await firestore.collection('users').doc(user.id).set(data);
     } catch (e) {
       throw Exception('Error al crear usuario: $e');
     }
@@ -76,11 +81,21 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
   @override
   Future<void> updateUser(User user) async {
     try {
-      await firestore.collection('users').doc(user.id).update({
+      final data = <String, dynamic>{
         'name': user.name,
         'avatarUrl': user.avatarUrl,
         'email': user.email,
-      });
+      };
+      // Actualizar isFictional si está definido
+      if (user.isFictional != null) {
+        if (user.isFictional == true) {
+          data['isFictional'] = true;
+        } else {
+          // Si es false, eliminar el campo (para usuarios que eran ficticios)
+          data['isFictional'] = FieldValue.delete();
+        }
+      }
+      await firestore.collection('users').doc(user.id).update(data);
     } catch (e) {
       throw Exception('Error al actualizar usuario: $e');
     }
@@ -99,10 +114,11 @@ class UserRemoteDataSourceImpl implements UserRemoteDataSource {
     final data = doc.data() as Map<String, dynamic>;
     return User(
       id: data['id'] as String,
-      email: data['email'] as String,
+      email: data['email'] as String? ?? '', // Email puede estar vacío para usuarios ficticios
       name: data['name'] as String,
       avatarUrl: data['avatarUrl'] as String?,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      isFictional: data['isFictional'] as bool? ?? false,
     );
   }
 }

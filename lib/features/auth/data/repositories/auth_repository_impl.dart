@@ -6,18 +6,26 @@ import '../datasources/auth_local_datasource.dart';
 import '../datasources/auth_remote_datasource.dart';
 import '../datasources/user_remote_datasource.dart';
 import '../../../../core/services/credentials_storage.dart';
+import '../../../groups/domain/repositories/groups_repository.dart';
+import '../../../groups/domain/entities/group.dart';
+import '../../../expenses/domain/repositories/expenses_repository.dart';
+import '../../../expenses/domain/entities/expense.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final AuthLocalDataSource localDataSource;
   final AuthRemoteDataSource remoteDataSource;
   final UserRemoteDataSource userRemoteDataSource;
   final CredentialsStorage credentialsStorage;
+  final GroupsRepository groupsRepository;
+  final ExpensesRepository expensesRepository;
 
   AuthRepositoryImpl(
     this.localDataSource,
     this.remoteDataSource,
     this.userRemoteDataSource,
     this.credentialsStorage,
+    this.groupsRepository,
+    this.expensesRepository,
   );
 
   @override
@@ -513,6 +521,131 @@ class AuthRepositoryImpl implements AuthRepository {
       email: email,
       password: password,
     );
+  }
+
+  @override
+  Future<Result<User>> claimFictionalUser(String fictionalUserId) async {
+    try {
+      // Verificar que el usuario esté autenticado
+      final firebaseUser = remoteDataSource.getCurrentFirebaseUser();
+      if (firebaseUser == null) {
+        return const Error(
+          AuthFailure('Debes estar autenticado para reclamar un usuario ficticio'),
+        );
+      }
+
+      // Obtener el usuario ficticio de la colección users
+      final fictionalUser = await userRemoteDataSource.getUserById(fictionalUserId);
+      if (fictionalUser == null) {
+        return const Error(NotFoundFailure('Usuario ficticio no encontrado'));
+      }
+      if (fictionalUser.isFictional != true) {
+        return const Error(
+          AuthFailure('Este usuario no es ficticio o ya ha sido reclamado'),
+        );
+      }
+
+      // Validar que el usuario no sea creador de ningún grupo donde esté el ficticio
+      final groupsResult = await groupsRepository.getGroupsByMemberId(fictionalUserId);
+      final groupsWithFictional = groupsResult.when(
+        success: (groups) => groups,
+        error: (_) => <Group>[],
+      );
+      for (final group in groupsWithFictional) {
+        if (group.createdBy == firebaseUser.uid) {
+          return const Error(
+            AuthFailure('El creador del grupo no puede reclamar usuarios ficticios'),
+          );
+        }
+      }
+
+      // Validar que el usuario no tenga gastos asociados en los grupos donde está el ficticio
+      bool hasExpensesInFictionalGroups = false;
+      for (final group in groupsWithFictional) {
+        final groupExpensesResult = await expensesRepository.getGroupExpenses(group.id);
+        final groupExpenses = groupExpensesResult.when(
+          success: (expenses) => expenses,
+          error: (_) => <Expense>[],
+        );
+        for (final expense in groupExpenses) {
+          if (expense.paidBy == firebaseUser.uid ||
+              expense.splitAmounts.containsKey(firebaseUser.uid)) {
+            hasExpensesInFictionalGroups = true;
+            break;
+          }
+        }
+        if (hasExpensesInFictionalGroups) break;
+      }
+      
+      if (hasExpensesInFictionalGroups) {
+        return const Error(
+          AuthFailure('No puedes reclamar un usuario ficticio si ya tienes gastos asociados en los grupos donde está'),
+        );
+      }
+
+      // Reemplazar el usuario ficticio por el usuario real en todos los grupos
+      final replaceGroupsResult = await groupsRepository.replaceFictionalUserWithRealUser(
+        fictionalUserId,
+        firebaseUser.uid,
+      );
+      replaceGroupsResult.when(
+        success: (_) {},
+        error: (failure) {
+          throw Exception('Error al reemplazar en grupos: ${failure.message}');
+        },
+      );
+
+      // Reemplazar el usuario ficticio por el usuario real en todos los gastos
+      final replaceExpensesResult = await expensesRepository.replaceUserIdInExpenses(
+        fictionalUserId,
+        firebaseUser.uid,
+      );
+      replaceExpensesResult.when(
+        success: (_) {},
+        error: (failure) {
+          throw Exception('Error al reemplazar en gastos: ${failure.message}');
+        },
+      );
+
+      // Obtener el usuario real actual (si existe) para mantener su nombre
+      User? realUser = await userRemoteDataSource.getUserById(firebaseUser.uid);
+      
+      // Si no existe el usuario real, crearlo con los datos de Firebase Auth
+      if (realUser == null) {
+        realUser = User(
+          id: firebaseUser.uid,
+          email: firebaseUser.email ?? '',
+          name: firebaseUser.displayName ??
+              firebaseUser.email?.split('@')[0] ??
+              'Usuario',
+          avatarUrl: firebaseUser.photoURL,
+          createdAt: DateTime.now(),
+          isFictional: false,
+        );
+        await userRemoteDataSource.createUser(realUser);
+      }
+      // Si ya existe, mantener su nombre original (no cambiarlo)
+
+      // Eliminar el usuario ficticio después de reemplazarlo en grupos y gastos
+      await userRemoteDataSource.deleteUser(fictionalUserId);
+
+      // Guardar en cache local
+      try {
+        await localDataSource.saveUser(realUser);
+      } catch (e) {
+        // Si falla el cache local, no es crítico
+      }
+
+      return Success(realUser);
+    } catch (e) {
+      String errorMessage = 'Error al reclamar usuario ficticio';
+      if (e is Exception) {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      } else {
+        errorMessage = e.toString();
+      }
+      return Error(AuthFailure(errorMessage));
+    }
   }
 
   Future<User?> _tryAutoLoginWithStoredCredentials() async {

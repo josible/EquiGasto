@@ -12,6 +12,8 @@ abstract class GroupsRemoteDataSource {
   Future<String> generateInviteCode(String groupId);
   Future<String?> getGroupIdByInviteCode(String inviteCode);
   Future<void> joinGroupByCode(String groupId, String userId);
+  Future<List<Group>> getGroupsByMemberId(String memberId);
+  Future<void> replaceMemberInGroup(String groupId, String oldMemberId, String newMemberId);
 }
 
 class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
@@ -236,6 +238,72 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
       await updateGroup(updatedGroup);
     } catch (e) {
       throw Exception('Error al unirse al grupo: $e');
+    }
+  }
+
+  @override
+  Future<List<Group>> getGroupsByMemberId(String memberId) async {
+    try {
+      final querySnapshot = await firestore
+          .collection('groups')
+          .where('memberIds', arrayContains: memberId)
+          .get();
+
+      return querySnapshot.docs
+          .map((doc) => _mapDocumentToGroup(doc))
+          .toList();
+    } catch (e) {
+      throw Exception('Error al obtener grupos por miembro: $e');
+    }
+  }
+
+  @override
+  Future<void> replaceMemberInGroup(
+    String groupId,
+    String oldMemberId,
+    String newMemberId,
+  ) async {
+    try {
+      final group = await getGroupById(groupId);
+      if (group == null) {
+        throw Exception('Grupo no encontrado');
+      }
+
+      if (!group.memberIds.contains(oldMemberId)) {
+        throw Exception('El miembro no está en el grupo');
+      }
+
+      // Si el nuevo ID ya está en el grupo, solo eliminar el antiguo (evitar duplicados)
+      // Si no está, reemplazar el antiguo por el nuevo
+      final updatedMemberIds = <String>[];
+      bool newMemberAlreadyExists = group.memberIds.contains(newMemberId);
+      
+      for (final id in group.memberIds) {
+        if (id == oldMemberId) {
+          // Si el nuevo miembro ya existe, no agregarlo (solo eliminar el ficticio)
+          if (!newMemberAlreadyExists) {
+            updatedMemberIds.add(newMemberId);
+          }
+          // Si ya existe, simplemente no agregamos ninguno (eliminamos el ficticio)
+        } else {
+          // Mantener los demás miembros
+          updatedMemberIds.add(id);
+        }
+      }
+
+      final updatedGroup = Group(
+        id: group.id,
+        name: group.name,
+        description: group.description,
+        createdBy: group.createdBy,
+        memberIds: updatedMemberIds,
+        createdAt: group.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      await updateGroup(updatedGroup);
+    } catch (e) {
+      throw Exception('Error al reemplazar miembro en grupo: $e');
     }
   }
 

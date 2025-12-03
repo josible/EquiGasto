@@ -6,6 +6,8 @@ abstract class ExpensesRemoteDataSource {
   Future<void> createExpense(Expense expense);
   Future<void> deleteExpense(String expenseId);
   Future<void> updateExpense(Expense expense);
+  Future<List<Expense>> getExpensesByUserId(String userId);
+  Future<void> replaceUserIdInExpenses(String oldUserId, String newUserId);
 }
 
 class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
@@ -97,6 +99,95 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
       });
     } catch (e) {
       throw Exception('Error al actualizar gasto: $e');
+    }
+  }
+
+  @override
+  Future<List<Expense>> getExpensesByUserId(String userId) async {
+    try {
+      // Buscar gastos donde el usuario es el que pagó
+      final paidByQuery = await firestore
+          .collection('expenses')
+          .where('paidBy', isEqualTo: userId)
+          .get();
+
+      // Buscar gastos donde el usuario está en splitAmounts
+      // Nota: Firestore no permite consultas directas en mapas, así que
+      // necesitamos obtener todos los gastos y filtrar en memoria
+      // O mejor, usar una consulta compuesta si es posible
+      final allExpenses = <Expense>[];
+      
+      for (final doc in paidByQuery.docs) {
+        allExpenses.add(_mapDocumentToExpense(doc));
+      }
+
+      // Para splitAmounts, necesitamos buscar en todos los gastos
+      // Esto no es eficiente, pero es necesario para reemplazar usuarios ficticios
+      // En producción, podrías considerar agregar un campo arrayContains para splitAmounts
+      final allExpensesQuery = await firestore
+          .collection('expenses')
+          .get();
+
+      for (final doc in allExpensesQuery.docs) {
+        final expense = _mapDocumentToExpense(doc);
+        // Si el usuario está en splitAmounts y no lo hemos agregado ya
+        if (expense.splitAmounts.containsKey(userId) &&
+            !allExpenses.any((e) => e.id == expense.id)) {
+          allExpenses.add(expense);
+        }
+      }
+
+      return allExpenses;
+    } catch (e) {
+      throw Exception('Error al obtener gastos por usuario: $e');
+    }
+  }
+
+  @override
+  Future<void> replaceUserIdInExpenses(
+    String oldUserId,
+    String newUserId,
+  ) async {
+    try {
+      final expenses = await getExpensesByUserId(oldUserId);
+
+      for (final expense in expenses) {
+        final updatedSplitAmounts = <String, double>{};
+        bool needsUpdate = false;
+
+        // Reemplazar en splitAmounts
+        for (final entry in expense.splitAmounts.entries) {
+          if (entry.key == oldUserId) {
+            updatedSplitAmounts[newUserId] = entry.value;
+            needsUpdate = true;
+          } else {
+            updatedSplitAmounts[entry.key] = entry.value;
+          }
+        }
+
+        // Reemplazar en paidBy si es necesario
+        final updatedPaidBy = expense.paidBy == oldUserId ? newUserId : expense.paidBy;
+        if (expense.paidBy == oldUserId) {
+          needsUpdate = true;
+        }
+
+        if (needsUpdate) {
+          final updatedExpense = Expense(
+            id: expense.id,
+            groupId: expense.groupId,
+            paidBy: updatedPaidBy,
+            description: expense.description,
+            amount: expense.amount,
+            date: expense.date,
+            splitAmounts: updatedSplitAmounts,
+            createdAt: expense.createdAt,
+          );
+
+          await updateExpense(updatedExpense);
+        }
+      }
+    } catch (e) {
+      throw Exception('Error al reemplazar usuario en gastos: $e');
     }
   }
 
