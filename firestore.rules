@@ -17,9 +17,11 @@ service cloud.firestore {
       // Permitir eliminar:
       // 1. El propio usuario autenticado, O
       // 2. Un usuario ficticio (isFictional == true) que está siendo reclamado
+      // Nota: Verificamos que isFictional existe y es true explícitamente
       allow delete: if request.auth != null && 
                      (request.auth.uid == userId || 
-                      (resource.data.get('isFictional', false) == true));
+                      (resource.data.keys.hasAny(['isFictional']) && 
+                       resource.data.isFictional == true));
     }
 
     // Reglas para grupos

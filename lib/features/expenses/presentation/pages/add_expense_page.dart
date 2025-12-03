@@ -315,117 +315,150 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
       }
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16.0),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Descripción',
-                hintText: 'Ej: Cena en restaurante',
+    return Form(
+      key: _formKey,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  TextFormField(
+                    controller: _descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Descripción',
+                      hintText: 'Ej: Cena en restaurante',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'La descripción es requerida';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  TextFormField(
+                    controller: _amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(
+                          RegExp(r'^\d+([.,]\d{0,2})?')),
+                    ],
+                    decoration: const InputDecoration(
+                      labelText: 'Importe',
+                      prefixText: '€ ',
+                      hintText: '0,00',
+                    ),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'El importe es requerido';
+                      }
+                      // Reemplazar coma por punto para parsear
+                      final normalizedValue = value.replaceAll(',', '.');
+                      final amount = double.tryParse(normalizedValue);
+                      if (amount == null || amount <= 0) {
+                        return 'Ingrese un importe válido';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 16),
+                  ListTile(
+                    title: const Text('Fecha'),
+                    subtitle: Text(
+                      '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+                    ),
+                    trailing: const Icon(Icons.calendar_today),
+                    onTap: _selectDate,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Quién pagó',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...group.memberIds.map((memberId) {
+                    final member = membersMap[memberId];
+                    final displayName = member != null
+                        ? member.name
+                        : 'Miembro ${memberId.substring(0, 8)}';
+                    return RadioListTile<String>(
+                      title: Text(displayName),
+                      value: memberId,
+                      groupValue: _selectedPaidBy,
+                      onChanged: (value) {
+                        setState(() => _selectedPaidBy = value);
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Dividir entre',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  ...group.memberIds.map((memberId) {
+                    final member = membersMap[memberId];
+                    final displayName = member != null
+                        ? member.name
+                        : 'Miembro ${memberId.substring(0, 8)}';
+                    return CheckboxListTile(
+                      title: Text(displayName),
+                      value: _selectedMembers[memberId] ?? false,
+                      onChanged: (value) {
+                        setState(() => _selectedMembers[memberId] = value ?? false);
+                      },
+                    );
+                  }),
+                  const SizedBox(height: 16),
+                ],
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'La descripción es requerida';
-                }
-                return null;
-              },
             ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _amountController,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [
-                FilteringTextInputFormatter.allow(
-                    RegExp(r'^\d+([.,]\d{0,2})?')),
-              ],
-              decoration: const InputDecoration(
-                labelText: 'Importe',
-                prefixText: '€ ',
-                hintText: '0,00',
+          ),
+          // Botón fijo en la parte inferior
+          SafeArea(
+            top: false,
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              decoration: BoxDecoration(
+                color: Theme.of(context).scaffoldBackgroundColor,
+                border: Border(
+                  top: BorderSide(
+                    color: Theme.of(context).dividerColor,
+                    width: 1,
+                  ),
+                ),
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'El importe es requerido';
-                }
-                // Reemplazar coma por punto para parsear
-                final normalizedValue = value.replaceAll(',', '.');
-                final amount = double.tryParse(normalizedValue);
-                if (amount == null || amount <= 0) {
-                  return 'Ingrese un importe válido';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: const Text('Fecha'),
-              subtitle: Text(
-                '${_selectedDate.day}/${_selectedDate.month}/${_selectedDate.year}',
+              child: ElevatedButton(
+                onPressed: _isLoading ? null : _handleSubmit,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  minimumSize: const Size(double.infinity, 48),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        _isEditing ? 'Guardar cambios' : 'Agregar Gasto',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: _selectDate,
             ),
-            const SizedBox(height: 16),
-            const Text(
-              'Quién pagó',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...group.memberIds.map((memberId) {
-              final member = membersMap[memberId];
-              final displayName = member != null
-                  ? member.name
-                  : 'Miembro ${memberId.substring(0, 8)}';
-              return RadioListTile<String>(
-                title: Text(displayName),
-                value: memberId,
-                groupValue: _selectedPaidBy,
-                onChanged: (value) {
-                  setState(() => _selectedPaidBy = value);
-                },
-              );
-            }),
-            const SizedBox(height: 16),
-            const Text(
-              'Dividir entre',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            ...group.memberIds.map((memberId) {
-              final member = membersMap[memberId];
-              final displayName = member != null
-                  ? member.name
-                  : 'Miembro ${memberId.substring(0, 8)}';
-              return CheckboxListTile(
-                title: Text(displayName),
-                value: _selectedMembers[memberId] ?? false,
-                onChanged: (value) {
-                  setState(() => _selectedMembers[memberId] = value ?? false);
-                },
-              );
-            }),
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _handleSubmit,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              child: _isLoading
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(_isEditing ? 'Guardar cambios' : 'Agregar Gasto'),
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
