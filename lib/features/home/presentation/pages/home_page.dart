@@ -8,6 +8,8 @@ import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../groups/presentation/pages/groups_list_page.dart';
 import '../../../groups/presentation/providers/groups_provider.dart';
 import '../../../groups/presentation/widgets/create_group_dialog.dart';
+import '../../../groups/domain/usecases/get_group_by_invite_code_usecase.dart';
+import '../../../groups/domain/usecases/join_group_by_code_usecase.dart';
 import '../../../notifications/presentation/providers/notifications_provider.dart';
 import '../../../settings/presentation/pages/settings_page.dart';
 
@@ -432,41 +434,46 @@ class _HomeTab extends ConsumerWidget {
                       setState(() => isLoading = true);
 
                       try {
-                        final groupId = codeController.text.trim();
-                        final groupsRepository =
-                            ref.read(groupsRepositoryProvider);
-                        final result =
-                            await groupsRepository.getGroupById(groupId);
+                        final inviteCode = codeController.text.trim().toUpperCase();
+                        
+                        // Verificar autenticación
+                        final authState = ref.read(authStateProvider);
+                        final user = authState.value;
+
+                        if (user == null) {
+                          setState(() => isLoading = false);
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Debes estar autenticado'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                          return;
+                        }
+
+                        // Obtener el grupo usando el código de invitación
+                        final getGroupUseCase = ref.read(getGroupByInviteCodeUseCaseProvider);
+                        final groupResult = await getGroupUseCase(inviteCode).timeout(
+                          const Duration(seconds: 10),
+                          onTimeout: () {
+                            throw Exception('Tiempo de espera agotado. Verifica tu conexión a internet.');
+                          },
+                        );
 
                         if (!context.mounted) return;
 
-                        result.when(
+                        groupResult.when(
                           success: (group) async {
                             // Verificar si el usuario ya es miembro
-                            final authState = ref.read(authStateProvider);
-                            final user = authState.value;
-
-                            if (user == null) {
-                              setState(() => isLoading = false);
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('Debes estar autenticado'),
-                                    backgroundColor: Colors.red,
-                                  ),
-                                );
-                              }
-                              return;
-                            }
-
                             if (group.memberIds.contains(user.id)) {
                               setState(() => isLoading = false);
                               Navigator.of(context).pop();
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
-                                    content:
-                                        Text('Ya eres miembro de este grupo'),
+                                    content: Text('Ya eres miembro de este grupo'),
                                     backgroundColor: Colors.orange,
                                   ),
                                 );
@@ -474,30 +481,31 @@ class _HomeTab extends ConsumerWidget {
                               return;
                             }
 
-                            // Unirse al grupo
-                            final inviteResult =
-                                await groupsRepository.inviteUserToGroup(
-                              groupId,
-                              user.email,
+                            // Unirse al grupo usando el código
+                            final joinUseCase = ref.read(joinGroupByCodeUseCaseProvider);
+                            final joinResult = await joinUseCase(inviteCode, user.id).timeout(
+                              const Duration(seconds: 10),
+                              onTimeout: () {
+                                throw Exception('Tiempo de espera agotado al unirse al grupo.');
+                              },
                             );
 
                             setState(() => isLoading = false);
 
                             if (!context.mounted) return;
 
-                            inviteResult.when(
+                            joinResult.when(
                               success: (_) {
                                 Navigator.of(context).pop();
                                 ref.invalidate(groupsListProvider);
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(
-                                        'Te has unido al grupo "${group.name}"'),
+                                    content: Text('Te has unido al grupo "${group.name}"'),
                                     backgroundColor: Colors.green,
                                   ),
                                 );
                                 // Navegar al grupo
-                                context.push('/groups/$groupId');
+                                context.push('/groups/${group.id}');
                               },
                               error: (failure) {
                                 ScaffoldMessenger.of(context).showSnackBar(
