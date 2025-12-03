@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 
 class AdBanner extends StatefulWidget {
@@ -19,12 +20,16 @@ class _AdBannerState extends State<AdBanner> {
   }
 
   void _loadAd() {
-    // ID de prueba de AdMob - Reemplazar con tu ID real de producción
-    // Para Android: ca-app-pub-3940256099942544/6300978111
-    // Para iOS: ca-app-pub-3940256099942544/2934735716
+    // Banner estándar 320x50, colocado en la parte inferior de la pantalla.
+    // En debug usamos el ID de prueba oficial de Google para evitar problemas de políticas,
+    // en release usamos tu ID real de bloque de anuncios.
+    final adUnitId = kReleaseMode
+        ? 'ca-app-pub-5041837614112889/3734700605' // ID real (Android, EquiGasto)
+        : 'ca-app-pub-3940256099942544/6300978111'; // ID de prueba oficial (Android)
+
     _bannerAd = BannerAd(
-      adUnitId: 'ca-app-pub-3940256099942544/6300978111', // ID de prueba Android - Reemplazar con tu ID real
-      size: AdSize.banner,
+      adUnitId: adUnitId,
+      size: AdSize.banner, // Banner estándar
       request: const AdRequest(),
       listener: BannerAdListener(
         onAdLoaded: (_) {
@@ -33,6 +38,8 @@ class _AdBannerState extends State<AdBanner> {
           });
         },
         onAdFailedToLoad: (ad, error) {
+          // Log para depurar por qué no se muestra el anuncio (por ejemplo, no hay fill).
+          debugPrint('❌ BannerAd failed to load: ${error.code} - ${error.message}');
           // Si falla, no mostramos el banner (no invasivo)
           ad.dispose();
           _bannerAd = null;
