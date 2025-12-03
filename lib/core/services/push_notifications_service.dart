@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import '../../features/auth/domain/entities/user.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
@@ -29,6 +30,9 @@ class PushNotificationsService {
     'Alertas de gastos',
     description: 'Notificaciones cuando se registran nuevos gastos',
     importance: Importance.high,
+    playSound: true,
+    enableVibration: true,
+    showBadge: true,
   );
 
   Future<void> initialize() async {
@@ -79,7 +83,18 @@ class PushNotificationsService {
         sound: true,
       );
     } else {
+      // Para Android, solicitar permisos de Firebase Messaging
       await _messaging.requestPermission();
+      
+      // Para Android 13+ (API 33+), también solicitar el permiso POST_NOTIFICATIONS
+      if (defaultTargetPlatform == TargetPlatform.android) {
+        final status = await Permission.notification.request();
+        if (status.isDenied) {
+          debugPrint('⚠️ Permiso de notificaciones denegado');
+        } else if (status.isPermanentlyDenied) {
+          debugPrint('⚠️ Permiso de notificaciones permanentemente denegado');
+        }
+      }
     }
   }
 
@@ -119,10 +134,14 @@ class PushNotificationsService {
   void _handleForegroundMessage(RemoteMessage message) {
     final notification = message.notification;
     if (notification == null) return;
+    
+    // Generar un ID único para la notificación usando timestamp
+    final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    
     _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
+      notificationId,
+      notification.title ?? 'Nueva notificación',
+      notification.body ?? '',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _androidChannel.id,
@@ -131,10 +150,17 @@ class PushNotificationsService {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
+          enableVibration: true,
+          playSound: true,
+          icon: '@mipmap/ic_launcher',
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
-      payload: message.data['groupId'],
+      payload: message.data['groupId'] ?? '',
     );
   }
 

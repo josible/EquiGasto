@@ -16,6 +16,134 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   final _formKey = GlobalKey<FormState>();
   bool _isEditing = false;
   bool _isLoading = false;
+  bool _isChangingPassword = false;
+
+  Future<void> _showChangePasswordDialog(String email) async {
+    final currentPasswordController = TextEditingController();
+    final newPasswordController = TextEditingController();
+    final confirmPasswordController = TextEditingController();
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Cambiar contraseña'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Cambiarás la contraseña de tu cuenta:\n$email',
+                  style: const TextStyle(fontSize: 13),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: currentPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Contraseña actual',
+                    prefixIcon: Icon(Icons.lock_outline),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: newPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Nueva contraseña',
+                    prefixIcon: Icon(Icons.lock),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: confirmPasswordController,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Confirmar nueva contraseña',
+                    prefixIcon: Icon(Icons.lock),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSubmitting ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final current = currentPasswordController.text.trim();
+                      final next = newPasswordController.text.trim();
+                      final confirm = confirmPasswordController.text.trim();
+
+                      if (current.isEmpty || next.isEmpty || confirm.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Todos los campos son requeridos'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (next != confirm) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Las contraseñas no coinciden'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      setState(() => isSubmitting = true);
+                      final changePasswordUseCase =
+                          ref.read(changePasswordUseCaseProvider);
+                      final result = await changePasswordUseCase(
+                        currentPassword: current,
+                        newPassword: next,
+                      );
+                      setState(() => isSubmitting = false);
+
+                      if (!mounted) return;
+
+                      result.when(
+                        success: (_) {
+                          Navigator.of(dialogContext).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Contraseña actualizada correctamente'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        },
+                        error: (failure) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(failure.message),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        },
+                      );
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Guardar'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   void dispose() {
@@ -167,6 +295,32 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                   leading: const Icon(Icons.email),
                   title: const Text('Email'),
                   subtitle: Text(user.email),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.lock_reset),
+                  title: const Text('Cambiar contraseña'),
+                  subtitle: const Text(
+                    'Cambia tu contraseña actual por una nueva',
+                  ),
+                  trailing: _isChangingPassword
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.chevron_right),
+                  onTap: _isChangingPassword
+                      ? null
+                      : () async {
+                          setState(() => _isChangingPassword = true);
+                          await _showChangePasswordDialog(user.email);
+                          if (mounted) {
+                            setState(() => _isChangingPassword = false);
+                          }
+                        },
                 ),
               ),
               const SizedBox(height: 24),

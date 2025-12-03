@@ -8,6 +8,7 @@ import '../../domain/usecases/logout_usecase.dart';
 import '../../domain/usecases/get_current_user_usecase.dart';
 import '../../domain/usecases/update_profile_usecase.dart';
 import '../../domain/usecases/reset_password_usecase.dart';
+import '../../domain/usecases/change_password_usecase.dart';
 import '../../../../core/di/providers.dart';
 
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
@@ -49,6 +50,11 @@ final updateProfileUseCaseProvider = Provider<UpdateProfileUseCase>((ref) {
 final resetPasswordUseCaseProvider = Provider<ResetPasswordUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return ResetPasswordUseCase(repository);
+});
+
+final changePasswordUseCaseProvider = Provider<ChangePasswordUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return ChangePasswordUseCase(repository);
 });
 
 final authStateProvider =

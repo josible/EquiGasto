@@ -448,6 +448,62 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Result<void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      if (currentPassword.isEmpty || newPassword.isEmpty) {
+        return const Error(
+          ValidationFailure('Todos los campos son requeridos'),
+        );
+      }
+      if (newPassword.length < 6) {
+        return const Error(
+          ValidationFailure('La nueva contraseña debe tener al menos 6 caracteres'),
+        );
+      }
+
+      final firebaseUser = remoteDataSource.getCurrentFirebaseUser();
+      if (firebaseUser == null || firebaseUser.email == null) {
+        return const Error(AuthFailure('Usuario no autenticado'));
+      }
+
+      // Reautenticar al usuario con la contraseña actual
+      try {
+        await remoteDataSource.signInWithEmailAndPassword(
+          firebaseUser.email!,
+          currentPassword,
+        );
+      } catch (e) {
+        return const Error(
+          AuthFailure('La contraseña actual no es correcta'),
+        );
+      }
+
+      await firebaseUser.updatePassword(newPassword);
+
+      // Actualizar credenciales almacenadas si las hubiera
+      await _cacheCredentialsIfNeeded(
+        email: firebaseUser.email,
+        password: newPassword,
+      );
+
+      return const Success(null);
+    } catch (e) {
+      String message = 'Error al cambiar la contraseña';
+      final text = e.toString();
+      if (text.contains('weak-password')) {
+        message = 'La nueva contraseña es demasiado débil';
+      } else if (text.contains('requires-recent-login')) {
+        message =
+            'Por seguridad, vuelve a iniciar sesión e inténtalo de nuevo.';
+      }
+      return Error(AuthFailure(message));
+    }
+  }
+
   Future<void> _cacheCredentialsIfNeeded({
     String? email,
     String? password,

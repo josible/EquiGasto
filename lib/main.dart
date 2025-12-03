@@ -22,6 +22,9 @@ const AndroidNotificationChannel _androidChannel = AndroidNotificationChannel(
   'Alertas de gastos',
   description: 'Notificaciones cuando se registran nuevos gastos',
   importance: Importance.high,
+  playSound: true,
+  enableVibration: true,
+  showBadge: true,
 );
 
 // Instancia global del plugin de notificaciones locales para el handler de background
@@ -53,10 +56,13 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   // Mostrar la notificación
   final notification = message.notification;
   if (notification != null) {
+    // Generar un ID único para la notificación usando timestamp
+    final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+    
     await _localNotificationsPlugin.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
+      notificationId,
+      notification.title ?? 'Nueva notificación',
+      notification.body ?? '',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _androidChannel.id,
@@ -65,10 +71,17 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           importance: Importance.high,
           priority: Priority.high,
           showWhen: true,
+          enableVibration: true,
+          playSound: true,
+          icon: '@mipmap/ic_launcher',
         ),
-        iOS: const DarwinNotificationDetails(),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
       ),
-      payload: message.data['groupId'],
+      payload: message.data['groupId'] ?? '',
     );
   }
 }
