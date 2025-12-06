@@ -20,7 +20,7 @@ service cloud.firestore {
       // Nota: Verificamos que isFictional existe y es true explícitamente
       allow delete: if request.auth != null && 
                      (request.auth.uid == userId || 
-                      (resource.data.keys.hasAny(['isFictional']) && 
+                      ('isFictional' in resource.data && 
                        resource.data.isFictional == true));
     }
 
