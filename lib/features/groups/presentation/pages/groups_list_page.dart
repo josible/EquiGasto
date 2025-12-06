@@ -69,7 +69,7 @@ class GroupsListPage extends ConsumerWidget {
               ref.invalidate(groupsListProvider);
             },
             child: ListView.builder(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 80.0),
               itemCount: groups.length,
               itemBuilder: (context, index) {
                 final group = groups[index];

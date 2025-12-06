@@ -62,11 +62,15 @@ class _AdBannerState extends State<AdBanner> {
       return const SizedBox.shrink(); // No mostrar nada si no hay ad
     }
 
-    return Container(
-      alignment: Alignment.center,
-      width: double.infinity,
-      height: _bannerAd!.size.height.toDouble(),
-      child: AdWidget(ad: _bannerAd!),
+    return SafeArea(
+      top: false,
+      child: Container(
+        alignment: Alignment.center,
+        width: double.infinity,
+        height: _bannerAd!.size.height.toDouble(),
+        padding: const EdgeInsets.symmetric(vertical: 4.0),
+        child: AdWidget(ad: _bannerAd!),
+      ),
     );
   }
 }

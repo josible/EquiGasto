@@ -168,7 +168,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                     ),
                     body: Column(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: TabBarView(
                             children: [
                               _HomeTab(),
@@ -177,7 +177,11 @@ class _HomePageState extends ConsumerState<HomePage> {
                             ],
                           ),
                         ),
-                        if (!isHomeTab) const AdBanner(),
+                        if (!isHomeTab)
+                          const Padding(
+                            padding: EdgeInsets.only(bottom: 0),
+                            child: AdBanner(),
+                          ),
                       ],
                     ),
                   );

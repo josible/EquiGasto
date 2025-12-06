@@ -2053,6 +2053,8 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                 );
               }
 
+              final currentUser = ref.watch(authStateProvider).value;
+
               return ListView.builder(
                 physics: const AlwaysScrollableScrollPhysics(),
                 padding: const EdgeInsets.all(16.0),
@@ -2066,6 +2068,9 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                       'Usuario ${debt.fromUserId.substring(0, 8)}';
                   final toName = toUser?.name ??
                       'Usuario ${debt.toUserId.substring(0, 8)}';
+
+                  // Solo el acreedor puede cancelar la deuda
+                  final canSettle = currentUser?.id == debt.toUserId;
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12.0),
@@ -2083,21 +2088,23 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                           color: Colors.orange,
                         ),
                       ),
-                      trailing: IconButton(
-                        icon: const Icon(
-                          Icons.check_circle,
-                          color: Colors.green,
-                        ),
-                        onPressed: () => _showSettleDebtDialog(
-                          context,
-                          ref,
-                          debt,
-                          fromName,
-                          toName,
-                          widget.groupId,
-                        ),
-                        tooltip: 'Liquidar deuda',
-                      ),
+                      trailing: canSettle
+                          ? IconButton(
+                              icon: const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
+                              onPressed: () => _showSettleDebtDialog(
+                                context,
+                                ref,
+                                debt,
+                                fromName,
+                                toName,
+                                widget.groupId,
+                              ),
+                              tooltip: 'Liquidar deuda',
+                            )
+                          : null,
                     ),
                   );
                 },
@@ -2184,12 +2191,12 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       return;
     }
 
-    // Solo el deudor puede liquidar su deuda
-    if (currentUser.id != debt.fromUserId) {
+    // Solo el acreedor puede liquidar la deuda
+    if (currentUser.id != debt.toUserId) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Solo el deudor puede liquidar esta deuda'),
+            content: Text('Solo el acreedor puede cancelar esta deuda'),
             backgroundColor: Colors.orange,
           ),
         );
@@ -2202,7 +2209,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       builder: (context) => AlertDialog(
         title: const Text('Liquidar deuda'),
         content: Text(
-          '¿Confirmas que has pagado €${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} a $toName?',
+          '¿Confirmas que has recibido €${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} de $fromName?',
         ),
         actions: [
           TextButton(
