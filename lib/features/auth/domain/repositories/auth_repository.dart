@@ -15,6 +15,7 @@ abstract class AuthRepository {
     required String newPassword,
   });
   Future<Result<User>> claimFictionalUser(String fictionalUserId);
+  Future<Result<User>> migrateUserData(String oldUserId, String newUserId);
 }
 
 

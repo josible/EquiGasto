@@ -100,11 +100,6 @@ Future<void> main() async {
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
   unawaited(MobileAds.instance.initialize());
-  unawaited(
-    GoogleSignIn.instance.initialize(
-      serverClientId: _googleServerClientId,
-    ),
-  );
 
   // Configurar listener de deep links
   final appLinks = AppLinks();

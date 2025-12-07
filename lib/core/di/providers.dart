@@ -73,7 +73,10 @@ final flutterLocalNotificationsPluginProvider =
 });
 
 final googleSignInProvider = Provider<GoogleSignIn>((ref) {
-  return GoogleSignIn.instance;
+  return GoogleSignIn(
+    scopes: ['email', 'profile'],
+    serverClientId: '363848646486-amk51ebf9fqvbqufmk3a9g2a78b014t8.apps.googleusercontent.com',
+  );
 });
 
 // SharedPreferences

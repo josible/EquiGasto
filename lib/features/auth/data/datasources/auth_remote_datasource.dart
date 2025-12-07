@@ -45,8 +45,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   @override
   Future<firebase_auth.UserCredential> signInWithGoogle() async {
     try {
-      final GoogleSignInAccount googleUser = await _authenticateWithGoogle();
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      // Autenticar con Google usando signIn() (API versión 6.x)
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        throw Exception('Inicio de sesión cancelado por el usuario.');
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       if (googleAuth.idToken == null) {
         throw Exception(
@@ -56,6 +62,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
       final credential = firebase_auth.GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
+        accessToken: googleAuth.accessToken,
       );
 
       return await firebaseAuth.signInWithCredential(credential);
@@ -97,9 +104,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           errorMessage = 'Error al iniciar sesión con Google: ${e.message ?? e.code}';
       }
       throw Exception(errorMessage);
-    } on GoogleSignInException catch (e) {
-      throw _mapGoogleSignInException(e);
-    } catch (_) {
+    } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception('Error al iniciar sesión con Google. Por favor, intenta de nuevo.');
     }
   }
@@ -112,8 +120,14 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
         throw Exception('Debes iniciar sesión primero antes de vincular tu cuenta de Google');
       }
 
-      final GoogleSignInAccount googleUser = await _authenticateWithGoogle();
-      final GoogleSignInAuthentication googleAuth = googleUser.authentication;
+      // Autenticar con Google usando signIn() (API versión 6.x)
+      final GoogleSignInAccount? googleUser = await googleSignIn.signIn();
+
+      if (googleUser == null) {
+        throw Exception('Inicio de sesión cancelado por el usuario.');
+      }
+
+      final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
 
       if (googleAuth.idToken == null) {
         throw Exception(
@@ -123,6 +137,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
 
       final credential = firebase_auth.GoogleAuthProvider.credential(
         idToken: googleAuth.idToken,
+        accessToken: googleAuth.accessToken,
       );
 
       return await currentUser.linkWithCredential(credential);
@@ -145,9 +160,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           errorMessage = 'Error al vincular cuenta de Google: ${e.message ?? e.code}';
       }
       throw Exception(errorMessage);
-    } on GoogleSignInException catch (e) {
-      throw _mapGoogleSignInException(e);
     } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception(e.toString());
     }
   }
@@ -156,29 +172,6 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Future<void> signOut() async {
     await googleSignIn.signOut();
     await firebaseAuth.signOut();
-  }
-
-  Future<GoogleSignInAccount> _authenticateWithGoogle() async {
-    return googleSignIn.authenticate(scopeHint: const ['email', 'profile']);
-  }
-
-  Exception _mapGoogleSignInException(GoogleSignInException exception) {
-    switch (exception.code) {
-      case GoogleSignInExceptionCode.canceled:
-        return Exception('Inicio de sesión con Google cancelado');
-      case GoogleSignInExceptionCode.clientConfigurationError:
-      case GoogleSignInExceptionCode.providerConfigurationError:
-        return Exception(
-          'Configuración inválida de Google Sign-In. Verifica tus credenciales.',
-        );
-      case GoogleSignInExceptionCode.uiUnavailable:
-        return Exception('No se pudo mostrar la ventana de Google. Intenta nuevamente.');
-      default:
-        return Exception(
-          exception.description ??
-              'Error desconocido al autenticar con Google (${exception.code.name}).',
-        );
-    }
   }
 
   @override

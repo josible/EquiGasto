@@ -648,6 +648,78 @@ class AuthRepositoryImpl implements AuthRepository {
     }
   }
 
+  @override
+  Future<Result<User>> migrateUserData(String oldUserId, String newUserId) async {
+    try {
+      // Obtener el usuario antiguo
+      final oldUser = await userRemoteDataSource.getUserById(oldUserId);
+      if (oldUser == null) {
+        return const Error(
+          AuthFailure('No se encontró el usuario antiguo'),
+        );
+      }
+
+      // Obtener o crear el usuario nuevo
+      User? newUser = await userRemoteDataSource.getUserById(newUserId);
+      if (newUser == null) {
+        // Crear nuevo usuario con los datos del antiguo
+        newUser = User(
+          id: newUserId,
+          email: oldUser.email,
+          name: oldUser.name,
+          avatarUrl: oldUser.avatarUrl,
+          createdAt: oldUser.createdAt,
+          isFictional: false,
+        );
+        await userRemoteDataSource.createUser(newUser);
+      }
+
+      // Migrar grupos
+      final replaceGroupsResult = await groupsRepository.replaceFictionalUserWithRealUser(
+        oldUserId,
+        newUserId,
+      );
+      replaceGroupsResult.when(
+        success: (_) {},
+        error: (failure) {
+          throw Exception('Error al migrar en grupos: ${failure.message}');
+        },
+      );
+
+      // Migrar gastos
+      final replaceExpensesResult = await expensesRepository.replaceUserIdInExpenses(
+        oldUserId,
+        newUserId,
+      );
+      replaceExpensesResult.when(
+        success: (_) {},
+        error: (failure) {
+          throw Exception('Error al migrar en gastos: ${failure.message}');
+        },
+      );
+
+      // Eliminar el usuario antiguo
+      await userRemoteDataSource.deleteUser(oldUserId);
+
+      // Guardar en cache local
+      try {
+        await localDataSource.saveUser(newUser);
+      } catch (e) {
+        // Si falla el cache local, no es crítico
+      }
+
+      return Success(newUser);
+    } catch (e) {
+      String errorMessage = 'Error al migrar datos de usuario';
+      if (e is Exception) {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      } else {
+        errorMessage = e.toString();
+      }
+      return Error(AuthFailure(errorMessage));
+    }
+  }
+
   Future<User?> _tryAutoLoginWithStoredCredentials() async {
     try {
       final credentials = await credentialsStorage.readCredentials();

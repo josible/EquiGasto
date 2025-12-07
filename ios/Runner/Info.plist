@@ -47,5 +47,21 @@
 	<true/>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Usamos Face ID o Touch ID para proteger tu información en EquiGasto.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- 
+					IMPORTANTE: Reemplaza este valor con el REVERSED_CLIENT_ID 
+					que se encuentra en tu archivo GoogleService-Info.plist.
+					Ejemplo: com.googleusercontent.apps.363848646486-amk51ebf9fqvbqufmk3a9g2a78b014t8
+				-->
+				<string>com.googleusercontent.apps.363848646486-amk51ebf9fqvbqufmk3a9g2a78b014t8</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

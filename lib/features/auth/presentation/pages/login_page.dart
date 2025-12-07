@@ -18,6 +18,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _isLoading = false;
+  bool _isLoadingGoogle = false;
   bool _hasNavigated = false;
   bool _autoLoginAttempted = false;
 
@@ -96,6 +97,52 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error inesperado: $e'),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleGoogleSignIn() async {
+    if (_isLoadingGoogle || _isLoading) return;
+
+    setState(() => _isLoadingGoogle = true);
+
+    try {
+      final loginWithGoogleUseCase = ref.read(loginWithGoogleUseCaseProvider);
+      final result = await loginWithGoogleUseCase();
+
+      if (!mounted) return;
+      setState(() => _isLoadingGoogle = false);
+
+      result.when(
+        success: (user) {
+          ref.read(authStateProvider.notifier).setUser(user);
+          if (mounted) {
+            context.go(RouteNames.home);
+          }
+        },
+        error: (failure) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(failure.message),
+                backgroundColor: Colors.red,
+                duration: const Duration(seconds: 4),
+              ),
+            );
+          }
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingGoogle = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al iniciar sesión con Google: $e'),
             backgroundColor: Colors.red,
             duration: const Duration(seconds: 4),
           ),
@@ -293,6 +340,48 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                           )
                         : const Text('Iniciar Sesión'),
                   ),
+                  const SizedBox(height: 16),
+                  const Row(
+                    children: [
+                      Expanded(child: Divider()),
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        child: Text('o'),
+                      ),
+                      Expanded(child: Divider()),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ElevatedButton.icon(
+                    onPressed: (_isLoadingGoogle || _isLoading)
+                        ? null
+                        : _handleGoogleSignIn,
+                    icon: _isLoadingGoogle
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(Colors.black),
+                            ),
+                          )
+                        : Image.asset(
+                            'assets/google_logo.png',
+                            height: 24,
+                            errorBuilder: (context, error, stackTrace) {
+                              return const Icon(Icons.g_mobiledata, size: 24);
+                            },
+                          ),
+                    label: const Text('Continuar con Google'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      elevation: 1,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   TextButton(
                     onPressed: () => context.go(RouteNames.register),
                     child: const Text('¿No tienes cuenta? Regístrate'),
