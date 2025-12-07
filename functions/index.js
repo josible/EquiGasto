@@ -39,6 +39,24 @@ exports.onNotificationCreated = functions.firestore
         expenseId: notification.data?.expenseId ?? '',
         amount: String(notification.data?.amount ?? ''),
       },
+      android: {
+        priority: 'high',
+        notification: {
+          channelId: 'expenses_updates',
+          sound: 'default',
+          priority: 'high',
+          defaultSound: true,
+          defaultVibrateTimings: true,
+        },
+      },
+      apns: {
+        payload: {
+          aps: {
+            sound: 'default',
+            badge: 1,
+          },
+        },
+      },
     };
 
     const response = await admin.messaging().sendEachForMulticast(payload);
