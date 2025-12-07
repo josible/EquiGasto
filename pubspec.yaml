@@ -1,7 +1,7 @@
 name: equigasto
 description: Una aplicación móvil para reparto de gastos similar a Splitwise
 publish_to: 'none'
-version: 1.0.27+28
+version: 1.0.28+29
 
 environment:
   sdk: '>=3.10.0 <4.0.0'
@@ -74,7 +74,8 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # assets:
+  assets:
+    - assets/logo.png
   #   - assets/google_logo.png  # Descomentar cuando agregues el logo de Google
 
 flutter_launcher_icons:

@@ -58,12 +58,19 @@ class NotificationsPage extends ConsumerWidget {
                 itemCount: notifications.length,
                 itemBuilder: (context, index) {
                   final notification = notifications[index];
+                  final isDark = Theme.of(context).brightness == Brightness.dark;
                   return Card(
-                    color: notification.isRead ? null : Colors.blue.shade50,
+                    color: notification.isRead
+                        ? null
+                        : isDark
+                            ? Colors.blue.withOpacity(0.2)
+                            : Colors.blue.shade50,
                     child: ListTile(
                       leading: Icon(
                         _getIconForType(notification.type),
-                        color: notification.isRead ? Colors.grey : Colors.blue,
+                        color: notification.isRead
+                            ? (isDark ? Colors.grey[400] : Colors.grey)
+                            : (isDark ? Colors.blue[300] : Colors.blue),
                       ),
                       title: Text(
                         notification.title,
@@ -72,8 +79,14 @@ class NotificationsPage extends ConsumerWidget {
                               ? FontWeight.normal
                               : FontWeight.bold,
                         ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Text(notification.message),
+                      subtitle: Text(
+                        notification.message,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       trailing: Text(
                         '${notification.createdAt.day}/${notification.createdAt.month}',
                         style: const TextStyle(fontSize: 12),

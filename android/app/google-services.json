@@ -30,6 +30,14 @@
           }
         },
         {
+          "client_id": "363848646486-nr2rc60i8jb2019cpf87jq07rsjsehh0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.sire.equigasto",
+            "certificate_hash": "5c4b91eb2ac0ce81861489fdb7f0332e1ed956d3"
+          }
+        },
+        {
           "client_id": "363848646486-ofj8b29qsna0bt48b9lkf2pjpi7cjj6p.apps.googleusercontent.com",
           "client_type": 3
         }

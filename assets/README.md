@@ -21,3 +21,4 @@ Para el botón de "Continuar con Google", necesitas el archivo `google_logo.png`
    - Si el logo no está disponible, la app usará un ícono de Material Icons como fallback
    - El botón seguirá funcionando correctamente
 
+
