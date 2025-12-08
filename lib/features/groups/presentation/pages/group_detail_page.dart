@@ -14,6 +14,7 @@ import '../../../../core/di/providers.dart';
 import '../../../expenses/presentation/providers/expenses_provider.dart';
 import '../../../expenses/domain/entities/debt.dart';
 import '../../../expenses/domain/entities/expense.dart';
+import '../../../expenses/domain/entities/expense_category.dart';
 import '../../../notifications/domain/entities/notification.dart';
 import '../providers/groups_provider.dart';
 import '../providers/group_members_provider.dart';
@@ -876,7 +877,7 @@ class _ExpensesTab extends ConsumerWidget {
                                 padding: const EdgeInsets.only(right: 12, left: 16),
                                 child: Stack(
                                   children: [
-                                    const Icon(Icons.receipt),
+                                    Icon(expense.category.icon),
                                     if (dotColor != null)
                                       Positioned(
                                         right: 0,
@@ -1048,7 +1049,7 @@ class _ExpensesTab extends ConsumerWidget {
                   final expense = expenses[index];
                   return Card(
                     child: ListTile(
-                      leading: const Icon(Icons.receipt),
+                      leading: Icon(expense.category.icon),
                       title: Text(expense.description),
                       subtitle: Text(
                         '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}',

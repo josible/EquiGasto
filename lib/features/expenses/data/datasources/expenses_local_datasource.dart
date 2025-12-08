@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../domain/entities/expense.dart';
+import '../../domain/entities/expense_category.dart';
 
 abstract class ExpensesLocalDataSource {
   Future<List<Expense>> getGroupExpenses(String groupId);
@@ -81,6 +82,9 @@ class ExpensesLocalDataSourceImpl implements ExpensesLocalDataSource {
         ),
       ),
       createdAt: DateTime.parse(json['createdAt'] as String),
+      category: json['category'] != null
+          ? ExpenseCategory.fromString(json['category'] as String)
+          : ExpenseCategory.other,
     );
   }
 
@@ -94,6 +98,7 @@ class ExpensesLocalDataSourceImpl implements ExpensesLocalDataSource {
       'date': expense.date.toIso8601String(),
       'splitAmounts': expense.splitAmounts,
       'createdAt': expense.createdAt.toIso8601String(),
+      'category': expense.category.value,
     };
   }
 }

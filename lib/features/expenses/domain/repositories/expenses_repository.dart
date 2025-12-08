@@ -1,5 +1,6 @@
 import '../../../../core/utils/result.dart';
 import '../entities/expense.dart';
+import '../entities/expense_category.dart';
 import '../entities/debt.dart';
 
 abstract class ExpensesRepository {
@@ -11,6 +12,7 @@ abstract class ExpensesRepository {
     required double amount,
     required DateTime date,
     required Map<String, double> splitAmounts,
+    ExpenseCategory category = ExpenseCategory.other,
   });
   Future<Result<void>> deleteExpense(String expenseId);
   Future<Result<Expense>> updateExpense({
@@ -22,6 +24,7 @@ abstract class ExpensesRepository {
     required DateTime date,
     required Map<String, double> splitAmounts,
     required DateTime createdAt,
+    ExpenseCategory category = ExpenseCategory.other,
   });
   Future<Result<List<Debt>>> getGroupDebts(String groupId);
   Future<Result<List<Debt>>> getUserDebts(String userId);

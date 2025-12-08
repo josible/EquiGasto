@@ -2,6 +2,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/expense.dart';
+import '../../domain/entities/expense_category.dart';
 import '../../domain/entities/debt.dart';
 import '../../domain/repositories/expenses_repository.dart';
 import '../datasources/expenses_local_datasource.dart';
@@ -42,6 +43,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     required double amount,
     required DateTime date,
     required Map<String, double> splitAmounts,
+    ExpenseCategory category = ExpenseCategory.other,
   }) async {
     try {
       if (description.isEmpty) {
@@ -64,6 +66,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
         date: date,
         splitAmounts: splitAmounts,
         createdAt: DateTime.now(),
+        category: category,
       );
 
       // Guardar en Firestore
@@ -111,6 +114,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
     required DateTime date,
     required Map<String, double> splitAmounts,
     required DateTime createdAt,
+    ExpenseCategory category = ExpenseCategory.other,
   }) async {
     try {
       if (description.isEmpty) {
@@ -133,6 +137,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
         date: date,
         splitAmounts: splitAmounts,
         createdAt: createdAt,
+        category: category,
       );
 
       await remoteDataSource.updateExpense(updatedExpense);
@@ -224,6 +229,7 @@ class ExpensesRepositoryImpl implements ExpensesRepository {
           toUserId: amount, // Solo el acreedor recibe el dinero
         },
         createdAt: DateTime.now(),
+        category: ExpenseCategory.other,
       );
 
       // Guardar el gasto compensatorio en Firestore

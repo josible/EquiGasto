@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uuid/uuid.dart';
 import '../../domain/entities/expense.dart';
+import '../../domain/entities/expense_category.dart';
 import '../../../../core/di/providers.dart';
 import '../providers/expenses_provider.dart';
 import '../../../groups/domain/entities/group.dart';
@@ -37,6 +38,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
   final Map<String, bool> _selectedMembers = {};
   Group? _currentGroup;
   bool _isLoading = false;
+  ExpenseCategory _selectedCategory = ExpenseCategory.other;
 
   bool get _isEditing => widget.initialExpense != null;
 
@@ -173,6 +175,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
               date: _selectedDate,
               splitAmounts: splitAmounts,
               createdAt: widget.initialExpense!.createdAt,
+              category: _selectedCategory,
             )
           : await ref.read(addExpenseUseCaseProvider)(
               groupId: widget.groupId,
@@ -181,6 +184,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
               amount: amount,
               date: _selectedDate,
               splitAmounts: splitAmounts,
+              category: _selectedCategory,
             );
 
       setState(() => _isLoading = false);
@@ -373,6 +377,43 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                     ),
                     trailing: const Icon(Icons.calendar_today),
                     onTap: _selectDate,
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Categoría',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: ExpenseCategory.values.map((category) {
+                      final isSelected = _selectedCategory == category;
+                      return FilterChip(
+                        label: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              category.icon,
+                              size: 18,
+                              color: isSelected ? Colors.white : null,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(category.displayName),
+                          ],
+                        ),
+                        selected: isSelected,
+                        onSelected: (selected) {
+                          if (selected) {
+                            setState(() {
+                              _selectedCategory = category;
+                            });
+                          }
+                        },
+                        selectedColor: Theme.of(context).primaryColor,
+                        checkmarkColor: Colors.white,
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: 16),
                   const Text(

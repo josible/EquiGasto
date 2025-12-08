@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/expense.dart';
+import '../../domain/entities/expense_category.dart';
 
 abstract class ExpensesRemoteDataSource {
   Future<List<Expense>> getGroupExpenses(String groupId);
@@ -70,6 +71,7 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
         'date': Timestamp.fromDate(expense.date),
         'splitAmounts': expense.splitAmounts,
         'createdAt': Timestamp.fromDate(expense.createdAt),
+        'category': expense.category.value,
       });
     } catch (e) {
       throw Exception('Error al crear gasto: $e');
@@ -96,6 +98,7 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
         'date': Timestamp.fromDate(expense.date),
         'splitAmounts': expense.splitAmounts,
         'createdAt': Timestamp.fromDate(expense.createdAt),
+        'category': expense.category.value,
       });
     } catch (e) {
       throw Exception('Error al actualizar gasto: $e');
@@ -181,6 +184,7 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
             date: expense.date,
             splitAmounts: updatedSplitAmounts,
             createdAt: expense.createdAt,
+            category: expense.category,
           );
 
           await updateExpense(updatedExpense);
@@ -206,6 +210,9 @@ class ExpensesRemoteDataSourceImpl implements ExpensesRemoteDataSource {
         ),
       ),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
+      category: data['category'] != null
+          ? ExpenseCategory.fromString(data['category'] as String)
+          : ExpenseCategory.other,
     );
   }
 }

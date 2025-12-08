@@ -1,5 +1,6 @@
 import '../../../../core/utils/result.dart';
 import '../entities/expense.dart';
+import '../entities/expense_category.dart';
 import '../repositories/expenses_repository.dart';
 
 class AddExpenseUseCase {
@@ -14,6 +15,7 @@ class AddExpenseUseCase {
     required double amount,
     required DateTime date,
     required Map<String, double> splitAmounts,
+    ExpenseCategory category = ExpenseCategory.other,
   }) {
     return repository.addExpense(
       groupId: groupId,
@@ -22,6 +24,7 @@ class AddExpenseUseCase {
       amount: amount,
       date: date,
       splitAmounts: splitAmounts,
+      category: category,
     );
   }
 }

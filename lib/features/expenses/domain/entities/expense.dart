@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'expense_category.dart';
 
 class Expense extends Equatable {
   final String id;
@@ -9,6 +10,7 @@ class Expense extends Equatable {
   final DateTime date;
   final Map<String, double> splitAmounts; // userId -> amount
   final DateTime createdAt;
+  final ExpenseCategory category;
 
   const Expense({
     required this.id,
@@ -19,6 +21,7 @@ class Expense extends Equatable {
     required this.date,
     required this.splitAmounts,
     required this.createdAt,
+    this.category = ExpenseCategory.other,
   });
 
   @override
@@ -31,6 +34,7 @@ class Expense extends Equatable {
         date,
         splitAmounts,
         createdAt,
+        category,
       ];
 }
 
