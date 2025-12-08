@@ -9,6 +9,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'dart:io' show Platform;
 import 'package:uuid/uuid.dart';
+import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../../../../core/constants/route_names.dart';
 import '../../../../core/di/providers.dart';
 import '../../../expenses/presentation/providers/expenses_provider.dart';
@@ -46,7 +48,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(_handleTabChange);
   }
 
@@ -156,6 +158,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                     Tab(text: 'Gastos'),
                     Tab(text: 'Miembros'),
                     Tab(text: 'Cuentas'),
+                    Tab(text: 'Totales'),
                   ],
                 ),
                 Expanded(
@@ -165,6 +168,7 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                       _ExpensesTab(groupId: widget.groupId),
                       _MembersTab(groupId: widget.groupId),
                       _AccountsTab(groupId: widget.groupId),
+                      _StatisticsTab(groupId: widget.groupId),
                     ],
                   ),
                 ),
@@ -2314,6 +2318,372 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
           ),
         );
       },
+    );
+  }
+}
+
+class _StatisticsTab extends ConsumerStatefulWidget {
+  final String groupId;
+
+  const _StatisticsTab({required this.groupId});
+
+  @override
+  ConsumerState<_StatisticsTab> createState() => _StatisticsTabState();
+}
+
+class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
+  DateTime _selectedMonth = DateTime.now();
+
+  Map<ExpenseCategory, double> _calculateCategoryTotals(List<Expense> expenses) {
+    final totals = <ExpenseCategory, double>{};
+    
+    for (final expense in expenses) {
+      // Filtrar por mes seleccionado
+      if (expense.date.year == _selectedMonth.year &&
+          expense.date.month == _selectedMonth.month) {
+        totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
+      }
+    }
+    
+    return totals;
+  }
+
+  Future<void> _selectMonth() async {
+    final currentYear = _selectedMonth.year;
+    final currentMonth = _selectedMonth.month;
+    
+    // Primero seleccionar el año
+    final year = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        final years = List.generate(
+          DateTime.now().year - 2019,
+          (index) => 2020 + index,
+        ).reversed.toList();
+        
+        return AlertDialog(
+          title: const Text('Seleccionar año'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.builder(
+              itemCount: years.length,
+              itemBuilder: (context, index) {
+                final year = years[index];
+                return ListTile(
+                  title: Text(year.toString()),
+                  selected: year == currentYear,
+                  onTap: () => Navigator.pop(context, year),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+    
+    if (year == null) return;
+    
+    // Luego seleccionar el mes
+    final month = await showDialog<int>(
+      context: context,
+      builder: (context) {
+        final months = [
+          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+        ];
+        
+        // Si el año seleccionado es el actual, solo mostrar meses hasta el mes actual
+        final maxMonth = year == DateTime.now().year 
+            ? DateTime.now().month 
+            : 12;
+        
+        return AlertDialog(
+          title: Text('Seleccionar mes - $year'),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: ListView.builder(
+              itemCount: maxMonth,
+              itemBuilder: (context, index) {
+                final monthIndex = index + 1;
+                return ListTile(
+                  title: Text(months[index]),
+                  selected: monthIndex == currentMonth && year == currentYear,
+                  onTap: () => Navigator.pop(context, monthIndex),
+                );
+              },
+            ),
+          ),
+        );
+      },
+    );
+    
+    if (month != null) {
+      setState(() {
+        _selectedMonth = DateTime(year, month);
+      });
+    }
+  }
+
+  List<Color> get _categoryColors => [
+    Colors.orange.shade400,
+    Colors.blue.shade400,
+    Colors.green.shade400,
+    Colors.purple.shade400,
+    Colors.red.shade400,
+    Colors.grey.shade400,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final expensesAsync = ref.watch(groupExpensesProvider(widget.groupId));
+
+    return expensesAsync.when(
+      data: (expenses) {
+        final categoryTotals = _calculateCategoryTotals(expenses);
+        final totalAmount = categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
+        
+        if (categoryTotals.isEmpty) {
+          return ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              const SizedBox(height: 120),
+              Text(
+                'No hay gastos para ${DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth)}',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.grey[300]
+                      : Colors.grey[700],
+                ),
+              ),
+            ],
+          );
+        }
+
+        final sortedCategories = categoryTotals.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
+
+        return RefreshIndicator(
+          onRefresh: () async {
+            ref.invalidate(groupExpensesProvider(widget.groupId));
+            await Future.delayed(const Duration(milliseconds: 300));
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              // Selector de mes
+              Card(
+                elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
+                child: ListTile(
+                  title: Text(
+                    'Mes',
+                    style: TextStyle(
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[300]
+                          : Colors.grey[700],
+                    ),
+                  ),
+                  subtitle: Text(
+                    DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth),
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white
+                          : Colors.black87,
+                    ),
+                  ),
+                  trailing: Icon(
+                    Icons.calendar_today,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white70
+                        : Colors.grey[700],
+                  ),
+                  onTap: _selectMonth,
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Total del mes
+              Card(
+                elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 2,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Theme.of(context).primaryColor.withOpacity(0.3)
+                    : Theme.of(context).primaryColor.withOpacity(0.15),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Total del mes',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[300]
+                              : Colors.grey[700],
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '€${totalAmount.toStringAsFixed(2).replaceAll('.', ',')}',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Theme.of(context).colorScheme.primary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Gráfico de tarta
+              Card(
+                elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    children: [
+                      Text(
+                        'Distribución por categoría',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 250,
+                        child: PieChart(
+                          PieChartData(
+                            sections: sortedCategories.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final categoryEntry = entry.value;
+                              final percentage = (categoryEntry.value / totalAmount) * 100;
+                              
+                              return PieChartSectionData(
+                                value: categoryEntry.value,
+                                title: '${percentage.toStringAsFixed(1)}%',
+                                color: _categoryColors[index % _categoryColors.length],
+                                radius: 80,
+                                titleStyle: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.white,
+                                ),
+                              );
+                            }).toList(),
+                            sectionsSpace: 2,
+                            centerSpaceRadius: 50,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              
+              // Lista de categorías
+              Text(
+                'Gastos por categoría',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).brightness == Brightness.dark
+                      ? Colors.white
+                      : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 8),
+              
+              ...sortedCategories.asMap().entries.map((entry) {
+                final index = entry.key;
+                final categoryEntry = entry.value;
+                final percentage = (categoryEntry.value / totalAmount) * 100;
+                final isDark = Theme.of(context).brightness == Brightness.dark;
+                
+                return Card(
+                  elevation: isDark ? 4 : 1,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: _categoryColors[index % _categoryColors.length].withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        categoryEntry.key.icon,
+                        color: _categoryColors[index % _categoryColors.length],
+                        size: 24,
+                      ),
+                    ),
+                    title: Text(
+                      categoryEntry.key.displayName,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    subtitle: Text(
+                      '${percentage.toStringAsFixed(1)}% del total',
+                      style: TextStyle(
+                        color: isDark ? Colors.grey[400] : Colors.grey[600],
+                      ),
+                    ),
+                    trailing: Text(
+                      '€${categoryEntry.value.toStringAsFixed(2).replaceAll('.', ',')}',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
+        );
+      },
+      loading: () => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        children: const [
+          SizedBox(
+            height: 200,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+        ],
+      ),
+      error: (error, stack) => ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16.0),
+        children: [
+          Text(
+            'Error: $error',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          ElevatedButton(
+            onPressed: () {
+              ref.invalidate(groupExpensesProvider(widget.groupId));
+            },
+            child: const Text('Reintentar'),
+          ),
+        ],
+      ),
     );
   }
 }
