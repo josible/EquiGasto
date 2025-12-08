@@ -89,10 +89,10 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
           errorMessage = 'Esta cuenta ha sido deshabilitada. Contacta al administrador.';
           break;
         case 'user-not-found':
-          errorMessage = 'No se encontró una cuenta con estas credenciales.';
+          errorMessage = 'No existe una cuenta con este email. Verifica que esté escrito correctamente o regístrate si es la primera vez que usas EquiGasto.';
           break;
         case 'wrong-password':
-          errorMessage = 'Credenciales incorrectas.';
+          errorMessage = 'La contraseña es incorrecta. Si la has olvidado, puedes recuperarla desde "¿Olvidaste tu contraseña?".';
           break;
         case 'invalid-verification-code':
           errorMessage = 'Código de verificación inválido.';
@@ -196,23 +196,25 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
   Exception _handleAuthException(firebase_auth.FirebaseAuthException e) {
     switch (e.code) {
       case 'user-not-found':
-        return Exception('No se encontró un usuario con ese email');
+        return Exception('No existe una cuenta con este email. Verifica que esté escrito correctamente o regístrate si es la primera vez que usas EquiGasto.');
       case 'wrong-password':
-        return Exception('Contraseña incorrecta');
+        return Exception('La contraseña es incorrecta. Si la has olvidado, puedes recuperarla desde "¿Olvidaste tu contraseña?".');
       case 'email-already-in-use':
-        return Exception('El email ya está registrado. Por favor, inicia sesión o usa otro email.');
+        return Exception('Este email ya está registrado. Si es tu cuenta, inicia sesión con tu contraseña o usa "¿Olvidaste tu contraseña?" para recuperarla.');
       case 'weak-password':
-        return Exception('La contraseña debe tener al menos 6 caracteres');
+        return Exception('La contraseña es demasiado débil. Por seguridad, debe tener al menos 6 caracteres.');
       case 'invalid-email':
-        return Exception('El formato del email no es válido');
+        return Exception('El formato del email no es válido. Asegúrate de escribir un email correcto, por ejemplo: usuario@ejemplo.com');
       case 'user-disabled':
-        return Exception('Esta cuenta ha sido deshabilitada. Contacta al administrador.');
+        return Exception('Esta cuenta ha sido deshabilitada. Si crees que es un error, contacta con el soporte de EquiGasto.');
       case 'operation-not-allowed':
-        return Exception('El registro con email y contraseña no está habilitado. Contacta al administrador.');
+        return Exception('El registro con email y contraseña no está disponible en este momento. Por favor, intenta iniciar sesión con Google o contacta con el soporte.');
       case 'network-request-failed':
-        return Exception('Error de conexión. Verifica tu conexión a internet.');
+        return Exception('No se pudo conectar a internet. Verifica tu conexión y vuelve a intentarlo.');
+      case 'too-many-requests':
+        return Exception('Demasiados intentos fallidos. Por seguridad, espera unos minutos antes de volver a intentar o recupera tu contraseña.');
       default:
-        return Exception('Error de autenticación: ${e.message ?? e.code}');
+        return Exception('Ocurrió un error al iniciar sesión. Por favor, intenta de nuevo. Si el problema persiste, contacta con el soporte.');
     }
   }
 }

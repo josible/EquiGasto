@@ -153,9 +153,27 @@ class _HomePageState extends ConsumerState<HomePage> {
                           ),
                           onPressed: () => context.push(RouteNames.notifications),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.person),
-                          onPressed: () => context.push(RouteNames.profile),
+                        Builder(
+                          builder: (context) {
+                            final user = ref.watch(authStateProvider).value;
+                            if (user?.avatarUrl != null && user!.avatarUrl!.isNotEmpty) {
+                              return IconButton(
+                                icon: CircleAvatar(
+                                  radius: 16,
+                                  backgroundColor: Colors.blue,
+                                  backgroundImage: NetworkImage(user.avatarUrl!),
+                                  onBackgroundImageError: (exception, stackTrace) {
+                                    // Si falla la carga, se mostrará el color de fondo
+                                  },
+                                ),
+                                onPressed: () => context.push(RouteNames.profile),
+                              );
+                            }
+                            return IconButton(
+                              icon: const Icon(Icons.person),
+                              onPressed: () => context.push(RouteNames.profile),
+                            );
+                          },
                         ),
                       ],
                       bottom: const TabBar(

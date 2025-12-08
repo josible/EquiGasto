@@ -15,6 +15,39 @@ import '../../../notifications/domain/entities/notification.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
+class CapitalizeFirstLetterFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
+    
+    // Si es el primer carácter o después de un punto y espacio, capitalizar
+    if (newValue.text.length == 1) {
+      return TextEditingValue(
+        text: newValue.text[0].toUpperCase() + newValue.text.substring(1),
+        selection: newValue.selection,
+      );
+    }
+    
+    // Si el usuario borró y volvió a escribir al inicio
+    if (oldValue.text.length > newValue.text.length && 
+        newValue.selection.start == 1) {
+      if (newValue.text.isNotEmpty) {
+        return TextEditingValue(
+          text: newValue.text[0].toUpperCase() + newValue.text.substring(1),
+          selection: newValue.selection,
+        );
+      }
+    }
+    
+    return newValue;
+  }
+}
+
 class AddExpensePage extends ConsumerStatefulWidget {
   final String groupId;
   final Expense? initialExpense;
@@ -331,6 +364,10 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                 children: [
                   TextFormField(
                     controller: _descriptionController,
+                    textCapitalization: TextCapitalization.sentences,
+                    inputFormatters: [
+                      CapitalizeFirstLetterFormatter(),
+                    ],
                     decoration: const InputDecoration(
                       labelText: 'Descripción',
                       hintText: 'Ej: Cena en restaurante',

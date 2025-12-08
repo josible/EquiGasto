@@ -193,6 +193,15 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    // Refrescar el usuario al abrir el perfil para obtener el avatarUrl actualizado
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(authStateProvider.notifier).refreshAuth();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authStateProvider);
 
@@ -234,13 +243,25 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
             padding: const EdgeInsets.all(16.0),
             children: [
               const SizedBox(height: 24),
-              CircleAvatar(
-                radius: 50,
-                backgroundColor: Colors.blue,
-                child: Text(
-                  user.name[0].toUpperCase(),
-                  style: const TextStyle(fontSize: 40, color: Colors.white),
-                ),
+              Center(
+                child: user.avatarUrl != null && user.avatarUrl!.isNotEmpty
+                    ? CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.blue,
+                        backgroundImage: NetworkImage(user.avatarUrl!),
+                        onBackgroundImageError: (exception, stackTrace) {
+                          // Si falla la carga de la imagen, mostrar la inicial
+                        },
+                        child: null,
+                      )
+                    : CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.blue,
+                        child: Text(
+                          user.name[0].toUpperCase(),
+                          style: const TextStyle(fontSize: 40, color: Colors.white),
+                        ),
+                      ),
               ),
               const SizedBox(height: 24),
               Card(

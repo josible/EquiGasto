@@ -47,6 +47,26 @@ class AuthRepositoryImpl implements AuthRepository {
       User? user;
       try {
         user = await userRemoteDataSource.getUserById(firebaseUser.uid);
+        
+        // Si el usuario existe pero no tiene avatarUrl y Google tiene foto, actualizarlo
+        if (user != null && 
+            (user.avatarUrl == null || user.avatarUrl!.isEmpty) &&
+            firebaseUser.photoURL != null && firebaseUser.photoURL!.isNotEmpty) {
+          final updatedUser = User(
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatarUrl: firebaseUser.photoURL,
+            createdAt: user.createdAt,
+            isFictional: user.isFictional,
+          );
+          try {
+            await userRemoteDataSource.updateUser(updatedUser);
+            user = updatedUser;
+          } catch (e) {
+            // Si falla la actualización, continuamos con el usuario existente
+          }
+        }
       } catch (e) {
         // Si falla Firestore (permisos, etc.), continuamos con datos de Auth
         user = null;
@@ -346,6 +366,26 @@ class AuthRepositoryImpl implements AuthRepository {
       User? user;
       try {
         user = await userRemoteDataSource.getUserById(firebaseUser.uid);
+        
+        // Si el usuario existe pero no tiene avatarUrl y Firebase Auth tiene foto, actualizarlo
+        if (user != null && 
+            (user.avatarUrl == null || user.avatarUrl!.isEmpty) &&
+            firebaseUser.photoURL != null && firebaseUser.photoURL!.isNotEmpty) {
+          final updatedUser = User(
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            avatarUrl: firebaseUser.photoURL,
+            createdAt: user.createdAt,
+            isFictional: user.isFictional,
+          );
+          try {
+            await userRemoteDataSource.updateUser(updatedUser);
+            user = updatedUser;
+          } catch (e) {
+            // Si falla la actualización, continuamos con el usuario existente
+          }
+        }
       } catch (e) {
         // Si falla Firestore (permisos, etc.), continuamos con datos de Auth
         user = null;

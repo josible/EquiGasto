@@ -1447,7 +1447,7 @@ class _MembersTab extends ConsumerWidget {
                                         textStyle: const TextStyle(fontSize: 12),
                                         minimumSize: const Size(0, 32),
                                       ),
-                                      child: const Text('Reclamar'),
+                                      child: const Text('Este soy yo'),
                                     ),
                                   ),
                                 ],
@@ -2349,31 +2349,54 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
   }
 
   Future<void> _selectMonth() async {
-    final currentYear = _selectedMonth.year;
-    final currentMonth = _selectedMonth.month;
+    final now = DateTime.now();
+    final months = <DateTime>[];
     
-    // Primero seleccionar el año
-    final year = await showDialog<int>(
+    // Generar los últimos 12 meses
+    for (int i = 0; i < 12; i++) {
+      final date = DateTime(now.year, now.month - i, 1);
+      months.add(date);
+    }
+    
+    final selectedDate = await showDialog<DateTime>(
       context: context,
       builder: (context) {
-        final years = List.generate(
-          DateTime.now().year - 2019,
-          (index) => 2020 + index,
-        ).reversed.toList();
-        
         return AlertDialog(
-          title: const Text('Seleccionar año'),
+          title: const Text('Seleccionar mes'),
           content: SizedBox(
             width: double.maxFinite,
-            height: 300,
+            height: 400,
             child: ListView.builder(
-              itemCount: years.length,
+              itemCount: months.length,
               itemBuilder: (context, index) {
-                final year = years[index];
+                final monthDate = months[index];
+                final isSelected = monthDate.year == _selectedMonth.year &&
+                    monthDate.month == _selectedMonth.month;
+                
+                // Formatear el mes con nombre descriptivo
+                String monthLabel;
+                if (index == 0) {
+                  monthLabel = 'Este mes';
+                } else if (index == 1) {
+                  monthLabel = 'Mes pasado';
+                } else {
+                  monthLabel = 'Hace ${index} meses';
+                }
+                
                 return ListTile(
-                  title: Text(year.toString()),
-                  selected: year == currentYear,
-                  onTap: () => Navigator.pop(context, year),
+                  title: Text(monthLabel),
+                  subtitle: Text(
+                    DateFormat('MMMM yyyy', 'es_ES').format(monthDate),
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.grey[400]
+                          : Colors.grey[600],
+                    ),
+                  ),
+                  selected: isSelected,
+                  selectedTileColor: Theme.of(context).primaryColor.withOpacity(0.1),
+                  onTap: () => Navigator.pop(context, monthDate),
                 );
               },
             ),
@@ -2382,46 +2405,9 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
       },
     );
     
-    if (year == null) return;
-    
-    // Luego seleccionar el mes
-    final month = await showDialog<int>(
-      context: context,
-      builder: (context) {
-        final months = [
-          'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
-          'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
-        ];
-        
-        // Si el año seleccionado es el actual, solo mostrar meses hasta el mes actual
-        final maxMonth = year == DateTime.now().year 
-            ? DateTime.now().month 
-            : 12;
-        
-        return AlertDialog(
-          title: Text('Seleccionar mes - $year'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 300,
-            child: ListView.builder(
-              itemCount: maxMonth,
-              itemBuilder: (context, index) {
-                final monthIndex = index + 1;
-                return ListTile(
-                  title: Text(months[index]),
-                  selected: monthIndex == currentMonth && year == currentYear,
-                  onTap: () => Navigator.pop(context, monthIndex),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    );
-    
-    if (month != null) {
+    if (selectedDate != null) {
       setState(() {
-        _selectedMonth = DateTime(year, month);
+        _selectedMonth = selectedDate;
       });
     }
   }
