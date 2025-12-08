@@ -855,15 +855,43 @@ class _ExpensesTab extends ConsumerWidget {
                           'Usuario ${expense.paidBy.substring(0, 8)}';
                       final canManageExpense =
                           currentUser?.id == expense.paidBy;
+                      
+                      // Determinar el color de la bolita
+                      final isAuthorExpense = currentUser?.id == expense.paidBy;
+                      final owesMoney = currentUser?.id != null &&
+                          expense.splitAmounts.containsKey(currentUser!.id) &&
+                          !isAuthorExpense;
+                      final dotColor = isAuthorExpense
+                          ? Colors.green
+                          : owesMoney
+                              ? Colors.red
+                              : null;
 
                       return Card(
                         child: IntrinsicHeight(
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              const Padding(
-                                padding: EdgeInsets.only(right: 12),
-                                child: Icon(Icons.receipt),
+                              Padding(
+                                padding: const EdgeInsets.only(right: 12, left: 16),
+                                child: Stack(
+                                  children: [
+                                    const Icon(Icons.receipt),
+                                    if (dotColor != null)
+                                      Positioned(
+                                        right: 0,
+                                        top: 0,
+                                        child: Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: BoxDecoration(
+                                            color: dotColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                               Expanded(
                                 child: Column(
