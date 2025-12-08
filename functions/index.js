@@ -38,6 +38,7 @@ exports.onNotificationCreated = functions.firestore
         groupId: notification.data?.groupId ?? '',
         expenseId: notification.data?.expenseId ?? '',
         amount: String(notification.data?.amount ?? ''),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
       android: {
         priority: 'high',
@@ -47,6 +48,13 @@ exports.onNotificationCreated = functions.firestore
           priority: 'high',
           defaultSound: true,
           defaultVibrateTimings: true,
+          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          tag: notification.data?.groupId ?? 'default',
+        },
+        data: {
+          groupId: notification.data?.groupId ?? '',
+          expenseId: notification.data?.expenseId ?? '',
+          amount: String(notification.data?.amount ?? ''),
         },
       },
       apns: {
@@ -54,6 +62,7 @@ exports.onNotificationCreated = functions.firestore
           aps: {
             sound: 'default',
             badge: 1,
+            contentAvailable: true,
           },
         },
       },

@@ -38,7 +38,11 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 
   // Inicializar notificaciones locales en el isolate de background
   const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
-  const darwinSettings = DarwinInitializationSettings();
+  const darwinSettings = DarwinInitializationSettings(
+    requestAlertPermission: true,
+    requestBadgePermission: true,
+    requestSoundPermission: true,
+  );
   const initializationSettings = InitializationSettings(
     android: androidSettings,
     iOS: darwinSettings,
@@ -53,16 +57,19 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           AndroidFlutterLocalNotificationsPlugin>()
       ?.createNotificationChannel(_androidChannel);
 
-  // Mostrar la notificación
+  // Mostrar la notificación siempre, incluso si viene solo con data
   final notification = message.notification;
-  if (notification != null) {
+  final title = notification?.title ?? message.data['title'] ?? 'Nueva notificación';
+  final body = notification?.body ?? message.data['body'] ?? message.data['message'] ?? '';
+  
+  if (title.isNotEmpty || body.isNotEmpty) {
     // Generar un ID único para la notificación usando timestamp
     final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
     
     await _localNotificationsPlugin.show(
       notificationId,
-      notification.title ?? 'Nueva notificación',
-      notification.body ?? '',
+      title,
+      body,
       NotificationDetails(
         android: AndroidNotificationDetails(
           _androidChannel.id,
@@ -74,6 +81,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
           enableVibration: true,
           playSound: true,
           icon: '@mipmap/ic_launcher',
+          ongoing: false,
+          autoCancel: true,
+          visibility: NotificationVisibility.public,
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,
