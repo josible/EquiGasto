@@ -2220,6 +2220,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
             ),
             child: const Text('Confirmar'),
           ),
