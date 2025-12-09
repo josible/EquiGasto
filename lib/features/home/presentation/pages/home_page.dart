@@ -289,13 +289,6 @@ class _HomeTab extends ConsumerWidget {
           return const Center(child: Text('No hay usuario autenticado'));
         }
 
-        final unreadCountAsync =
-            ref.watch(unreadNotificationsCountProvider(user.id));
-        final unreadCount = unreadCountAsync.maybeWhen(
-          data: (count) => count,
-          orElse: () => 0,
-        );
-
         return ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
@@ -382,20 +375,6 @@ class _HomeTab extends ConsumerWidget {
                 subtitle: const Text('Ingresa el código del grupo para unirte'),
                 trailing: const Icon(Icons.arrow_forward_ios),
                 onTap: () => _showJoinGroupDialog(context, ref),
-              ),
-            ),
-            const SizedBox(height: 8),
-            Card(
-              child: ListTile(
-                leading: _BadgeIcon(
-                  icon: Icons.notifications,
-                  count: unreadCount,
-                  size: 40,
-                ),
-                title: const Text('Notificaciones'),
-                subtitle: const Text('Revisa tus notificaciones'),
-                trailing: const Icon(Icons.arrow_forward_ios),
-                onTap: () => context.push(RouteNames.notifications),
               ),
             ),
             const SizedBox(height: 16),

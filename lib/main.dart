@@ -33,6 +33,11 @@ final FlutterLocalNotificationsPlugin _localNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  debugPrint('🔔 Handler de background llamado');
+  debugPrint('🔔 Título: ${message.notification?.title}');
+  debugPrint('🔔 Cuerpo: ${message.notification?.body}');
+  debugPrint('🔔 Data: ${message.data}');
+  
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -62,6 +67,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final notification = message.notification;
   final title = notification?.title ?? message.data['title'] ?? 'Nueva notificación';
   final body = notification?.body ?? message.data['body'] ?? message.data['message'] ?? '';
+  
+  debugPrint('🔔 Mostrando notificación - Título: $title, Cuerpo: $body');
   
   if (title.isNotEmpty || body.isNotEmpty) {
     // Generar un ID único para la notificación usando timestamp
@@ -94,6 +101,9 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
       ),
       payload: message.data['groupId'] ?? '',
     );
+    debugPrint('✅ Notificación mostrada en background');
+  } else {
+    debugPrint('⚠️ Notificación vacía, no se muestra');
   }
 }
 

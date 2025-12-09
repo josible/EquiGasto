@@ -28,6 +28,8 @@ exports.onNotificationCreated = functions.firestore
       return null;
     }
 
+    // Estructura del payload para asegurar que las notificaciones se muestren
+    // cuando la app está en background o cerrada
     const payload = {
       tokens,
       notification: {
@@ -50,11 +52,9 @@ exports.onNotificationCreated = functions.firestore
           defaultVibrateTimings: true,
           clickAction: 'FLUTTER_NOTIFICATION_CLICK',
           tag: notification.data?.groupId ?? 'default',
-        },
-        data: {
-          groupId: notification.data?.groupId ?? '',
-          expenseId: notification.data?.expenseId ?? '',
-          amount: String(notification.data?.amount ?? ''),
+          visibility: 'public',
+          notificationCount: 1,
+          icon: '@mipmap/ic_launcher',
         },
       },
       apns: {
@@ -63,6 +63,10 @@ exports.onNotificationCreated = functions.firestore
             sound: 'default',
             badge: 1,
             contentAvailable: true,
+            alert: {
+              title: notification.title,
+              body: notification.message,
+            },
           },
         },
       },

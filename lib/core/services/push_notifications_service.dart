@@ -115,25 +115,78 @@ class PushNotificationsService {
   }
 
   Future<void> _registerToken(String userId) async {
-    final token = await _messaging.getToken();
-    if (token == null) return;
-    await _saveToken(userId, token);
-    _tokenRefreshSubscription?.cancel();
-    _tokenRefreshSubscription = _messaging.onTokenRefresh
-        .listen((newToken) => _saveToken(userId, newToken));
+    try {
+      final token = await _messaging.getToken();
+      if (token == null) {
+        debugPrint('⚠️ No se pudo obtener el token FCM');
+        return;
+      }
+      debugPrint('✅ Token FCM obtenido: ${token.substring(0, 20)}...');
+      await _saveToken(userId, token);
+      _tokenRefreshSubscription?.cancel();
+      _tokenRefreshSubscription = _messaging.onTokenRefresh.listen((newToken) {
+        debugPrint('🔄 Token FCM actualizado: ${newToken.substring(0, 20)}...');
+        _saveToken(userId, newToken);
+      });
+    } catch (e) {
+      debugPrint('❌ Error al registrar token FCM: $e');
+    }
   }
 
   Future<void> _saveToken(String userId, String token) async {
-    final firestore = _ref.read(firebaseFirestoreProvider);
-    await firestore.collection('users').doc(userId).set({
-      'fcmTokens': FieldValue.arrayUnion([token]),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    try {
+      final firestore = _ref.read(firebaseFirestoreProvider);
+      await firestore.collection('users').doc(userId).set({
+        'fcmTokens': FieldValue.arrayUnion([token]),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      debugPrint('✅ Token FCM guardado para usuario: $userId');
+    } catch (e) {
+      debugPrint('❌ Error al guardar token FCM: $e');
+    }
   }
 
   void _handleForegroundMessage(RemoteMessage message) {
+    debugPrint('📱 Notificación recibida en foreground');
+    debugPrint('📱 Título: ${message.notification?.title}');
+    debugPrint('📱 Cuerpo: ${message.notification?.body}');
+    debugPrint('📱 Data: ${message.data}');
+    
     final notification = message.notification;
-    if (notification == null) return;
+    if (notification == null) {
+      debugPrint('⚠️ Notificación sin payload de notification, usando data');
+      // Si no hay notification, intentar usar data
+      final title = message.data['title'] ?? 'Nueva notificación';
+      final body = message.data['body'] ?? message.data['message'] ?? '';
+      if (title.isEmpty && body.isEmpty) return;
+      
+      final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
+      _localNotifications.show(
+        notificationId,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _androidChannel.id,
+            _androidChannel.name,
+            channelDescription: _androidChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            showWhen: true,
+            enableVibration: true,
+            playSound: true,
+            icon: '@mipmap/ic_launcher',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
+        ),
+        payload: message.data['groupId'] ?? '',
+      );
+      return;
+    }
     
     // Generar un ID único para la notificación usando timestamp
     final notificationId = DateTime.now().millisecondsSinceEpoch.remainder(100000);
@@ -162,6 +215,7 @@ class PushNotificationsService {
       ),
       payload: message.data['groupId'] ?? '',
     );
+    debugPrint('✅ Notificación mostrada en foreground');
   }
 
   void _handleNotificationTap(RemoteMessage message) {
