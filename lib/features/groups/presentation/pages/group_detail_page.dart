@@ -2431,21 +2431,81 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
         final totalAmount = categoryTotals.values.fold(0.0, (sum, amount) => sum + amount);
         
         if (categoryTotals.isEmpty) {
-          return ListView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              const SizedBox(height: 120),
-              Text(
-                'No hay gastos para ${DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth)}',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Theme.of(context).brightness == Brightness.dark
-                      ? Colors.grey[300]
-                      : Colors.grey[700],
+          return RefreshIndicator(
+            onRefresh: () async {
+              ref.invalidate(groupExpensesProvider(widget.groupId));
+              await Future.delayed(const Duration(milliseconds: 300));
+            },
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16.0),
+              children: [
+                // Selector de mes
+                Card(
+                  elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
+                  child: ListTile(
+                    title: Text(
+                      'Mes',
+                      style: TextStyle(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[300]
+                            : Colors.grey[700],
+                      ),
+                    ),
+                    subtitle: Text(
+                      DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth),
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white
+                            : Colors.black87,
+                      ),
+                    ),
+                    trailing: Icon(
+                      Icons.calendar_today,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? Colors.white70
+                          : Colors.grey[700],
+                    ),
+                    onTap: _selectMonth,
+                  ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24),
+                // Mensaje de no hay gastos
+                Card(
+                  elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      children: [
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 64,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[600]
+                              : Colors.grey[400],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No hay gastos para ${DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth)}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[300]
+                                : Colors.grey[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
+                // Anuncio
+                const AdBanner(),
+              ],
+            ),
           );
         }
 
@@ -2501,8 +2561,10 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                     ? Theme.of(context).primaryColor.withOpacity(0.3)
                     : Theme.of(context).primaryColor.withOpacity(0.15),
                 child: Padding(
-                  padding: const EdgeInsets.all(16.0),
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 20.0),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
                         'Total del mes',
@@ -2513,15 +2575,19 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                               : Colors.grey[700],
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '€${totalAmount.toStringAsFixed(2).replaceAll('.', ',')}',
-                        style: TextStyle(
-                          fontSize: 28,
-                          fontWeight: FontWeight.bold,
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.white
-                              : Theme.of(context).colorScheme.primary,
+                      const SizedBox(height: 8),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(
+                          '€${totalAmount.toStringAsFixed(2).replaceAll('.', ',')}',
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Theme.of(context).colorScheme.primary,
+                          ),
+                          textAlign: TextAlign.center,
                         ),
                       ),
                     ],
@@ -2639,6 +2705,9 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                   ),
                 );
               }),
+              const SizedBox(height: 24),
+              // Anuncio
+              const AdBanner(),
             ],
           ),
         );
