@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../../../../core/constants/route_names.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 
@@ -45,20 +46,26 @@ class SettingsPage extends ConsumerWidget {
             title: const Text('Acerca de'),
             subtitle: const Text('Información de la aplicación'),
             trailing: const Icon(Icons.arrow_forward_ios),
-            onTap: () {
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('EquiGasto'),
-                  content: const Text('Versión 1.0.0\n\nApp para reparto de gastos.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.of(context).pop(),
-                      child: const Text('Cerrar'),
-                    ),
-                  ],
-                ),
-              );
+            onTap: () async {
+              final packageInfo = await PackageInfo.fromPlatform();
+              final version = packageInfo.version;
+              final buildNumber = packageInfo.buildNumber;
+              
+              if (context.mounted) {
+                showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('EquiGasto'),
+                    content: Text('Versión $version+$buildNumber\n\nApp para reparto de gastos.'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: const Text('Cerrar'),
+                      ),
+                    ],
+                  ),
+                );
+              }
             },
           ),
         ),
