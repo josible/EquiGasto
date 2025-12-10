@@ -26,3 +26,4 @@ Para el botón de "Continuar con Google", necesitas el archivo `google_logo.png`
 
 
 
+
