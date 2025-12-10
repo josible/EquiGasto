@@ -1,6 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../domain/entities/group.dart';
+import '../../domain/entities/currency.dart';
 
 abstract class GroupsRemoteDataSource {
   Future<List<Group>> getUserGroups(String userId);
@@ -59,16 +60,23 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
   @override
   Future<void> createGroup(Group group) async {
     try {
+      final currencyCode = group.currency.code;
+      debugPrint('💰 RemoteDataSource: Guardando grupo ${group.id} con currency: $currencyCode');
+      
       await firestore.collection('groups').doc(group.id).set({
         'id': group.id,
         'name': group.name,
         'description': group.description,
         'createdBy': group.createdBy,
         'memberIds': group.memberIds,
+        'currency': currencyCode,
         'createdAt': Timestamp.fromDate(group.createdAt),
         'updatedAt': Timestamp.fromDate(group.updatedAt),
       });
+      
+      debugPrint('✅ RemoteDataSource: Grupo ${group.id} guardado exitosamente con currency: $currencyCode');
     } catch (e) {
+      debugPrint('❌ RemoteDataSource: Error al crear grupo: $e');
       throw Exception('Error al crear grupo: $e');
     }
   }
@@ -80,6 +88,7 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
         'name': group.name,
         'description': group.description,
         'memberIds': group.memberIds,
+        'currency': group.currency.code,
         'updatedAt': Timestamp.fromDate(group.updatedAt),
       });
     } catch (e) {
@@ -231,6 +240,7 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
         description: group.description,
         createdBy: group.createdBy,
         memberIds: [...group.memberIds, userId],
+        currency: group.currency,
         createdAt: group.createdAt,
         updatedAt: DateTime.now(),
       );
@@ -297,6 +307,7 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
         description: group.description,
         createdBy: group.createdBy,
         memberIds: updatedMemberIds,
+        currency: group.currency,
         createdAt: group.createdAt,
         updatedAt: DateTime.now(),
       );
@@ -309,12 +320,20 @@ class GroupsRemoteDataSourceImpl implements GroupsRemoteDataSource {
 
   Group _mapDocumentToGroup(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    final currencyCode = data['currency'] as String?;
+    final currency = currencyCode != null 
+        ? Currency.fromString(currencyCode)
+        : Currency.eur; // Default para compatibilidad con grupos antiguos
+    
+    debugPrint('💰 Leyendo grupo ${data['id']}: currency en Firestore = $currencyCode, Currency parseado = ${currency.code}');
+    
     return Group(
       id: data['id'] as String,
       name: data['name'] as String,
       description: data['description'] as String,
       createdBy: data['createdBy'] as String,
       memberIds: List<String>.from(data['memberIds'] as List),
+      currency: currency,
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       updatedAt: (data['updatedAt'] as Timestamp).toDate(),
     );

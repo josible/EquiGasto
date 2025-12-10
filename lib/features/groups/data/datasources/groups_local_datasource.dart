@@ -1,6 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../../domain/entities/group.dart';
+import '../../domain/entities/currency.dart';
 
 abstract class GroupsLocalDataSource {
   Future<List<Group>> getUserGroups(String userId);
@@ -80,6 +81,9 @@ class GroupsLocalDataSourceImpl implements GroupsLocalDataSource {
       description: json['description'] as String,
       createdBy: json['createdBy'] as String,
       memberIds: List<String>.from(json['memberIds'] as List),
+      currency: json['currency'] != null 
+          ? Currency.fromString(json['currency'] as String)
+          : Currency.eur, // Default para compatibilidad con grupos antiguos
       createdAt: DateTime.parse(json['createdAt'] as String),
       updatedAt: DateTime.parse(json['updatedAt'] as String),
     );
@@ -92,6 +96,7 @@ class GroupsLocalDataSourceImpl implements GroupsLocalDataSource {
       'description': group.description,
       'createdBy': group.createdBy,
       'memberIds': group.memberIds,
+      'currency': group.currency.code,
       'createdAt': group.createdAt.toIso8601String(),
       'updatedAt': group.updatedAt.toIso8601String(),
     };

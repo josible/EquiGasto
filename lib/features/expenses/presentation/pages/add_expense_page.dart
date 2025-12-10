@@ -306,7 +306,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
         type: NotificationType.expenseAdded,
         title: 'Nuevo gasto en ${group.name}',
         message:
-            '${currentUser.name} agregó ${expense.description} por €$amountLabel',
+            '${currentUser.name} agregó ${expense.description} por ${group.currency.symbol}$amountLabel',
         data: {
           'groupId': expense.groupId,
           'expenseId': expense.id,
@@ -337,6 +337,9 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
       ),
       body: groupAsync.when(
         data: (group) {
+          // Debug: verificar la moneda del grupo
+          debugPrint('💰 Moneda del grupo ${group.id}: ${group.currency.code} (${group.currency.symbol})');
+          
           final membersAsync = ref.watch(groupMembersProvider(group.memberIds));
 
           return membersAsync.when(
@@ -351,7 +354,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
     );
   }
 
-  Widget _buildForm(BuildContext context, group, List members) {
+  Widget _buildForm(BuildContext context, Group group, List members) {
     // Crear un mapa de userId -> User para búsqueda rápida
     final membersMap = <String, User>{};
     for (final member in members) {
@@ -396,9 +399,15 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                       FilteringTextInputFormatter.allow(
                           RegExp(r'^\d+([.,]\d{0,2})?')),
                     ],
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Importe',
-                      suffixText: '€',
+                      suffix: Padding(
+                        padding: const EdgeInsets.only(left: 8.0),
+                        child: Text(
+                          group.currency.symbol,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
                       hintText: '0,00',
                     ),
                     validator: (value) {

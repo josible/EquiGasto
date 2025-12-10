@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/group.dart';
 import '../providers/group_balance_provider.dart';
+import '../../../../core/utils/currency_formatter.dart';
 
 class GroupCard extends ConsumerWidget {
   final Group group;
@@ -50,11 +51,7 @@ class GroupCard extends ConsumerWidget {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  isPositive 
-                      ? '+${balance.toStringAsFixed(2).replaceAll('.', ',')} €'
-                      : isNegative
-                          ? '-${(-balance).toStringAsFixed(2).replaceAll('.', ',')} €'
-                          : '0,00 €',
+                  CurrencyFormatter.formatAmountWithSign(balance, group.currency),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

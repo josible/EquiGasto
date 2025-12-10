@@ -3,6 +3,7 @@ import 'package:uuid/uuid.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/utils/result.dart';
 import '../../domain/entities/group.dart';
+import '../../domain/entities/currency.dart';
 import '../../domain/repositories/groups_repository.dart';
 import '../datasources/groups_local_datasource.dart';
 import '../datasources/groups_remote_datasource.dart';
@@ -64,7 +65,7 @@ class GroupsRepositoryImpl implements GroupsRepository {
   }
 
   @override
-  Future<Result<Group>> createGroup(String name, String description, String createdBy) async {
+  Future<Result<Group>> createGroup(String name, String description, String createdBy, Currency currency) async {
     try {
       if (name.isEmpty) {
         return const Error(ValidationFailure('El nombre del grupo es requerido'));
@@ -76,9 +77,12 @@ class GroupsRepositoryImpl implements GroupsRepository {
         description: description,
         createdBy: createdBy,
         memberIds: [createdBy], // El creador es automáticamente miembro
+        currency: currency,
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
+
+      debugPrint('💰 Repository: Creando grupo ${group.id} con moneda: ${group.currency.code} (${group.currency.symbol})');
 
       // Crear en Firestore
       await remoteDataSource.createGroup(group);
@@ -111,6 +115,7 @@ class GroupsRepositoryImpl implements GroupsRepository {
         description: description,
         createdBy: existingGroup.createdBy,
         memberIds: existingGroup.memberIds,
+        currency: existingGroup.currency,
         createdAt: existingGroup.createdAt,
         updatedAt: DateTime.now(),
       );
@@ -175,6 +180,7 @@ class GroupsRepositoryImpl implements GroupsRepository {
         description: group.description,
         createdBy: group.createdBy,
         memberIds: [...group.memberIds, invitedUserId],
+        currency: group.currency,
         createdAt: group.createdAt,
         updatedAt: DateTime.now(),
       );
@@ -215,6 +221,7 @@ class GroupsRepositoryImpl implements GroupsRepository {
         description: group.description,
         createdBy: group.createdBy,
         memberIds: updatedMemberIds,
+        currency: group.currency,
         createdAt: group.createdAt,
         updatedAt: DateTime.now(),
       );
@@ -339,6 +346,7 @@ class GroupsRepositoryImpl implements GroupsRepository {
         description: group.description,
         createdBy: group.createdBy,
         memberIds: [...group.memberIds, fictionalUserId],
+        currency: group.currency,
         createdAt: group.createdAt,
         updatedAt: DateTime.now(),
       );

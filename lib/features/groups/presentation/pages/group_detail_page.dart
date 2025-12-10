@@ -24,6 +24,8 @@ import '../providers/group_balance_provider.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/presentation/providers/auth_provider.dart';
 import '../../../../core/widgets/ad_banner.dart';
+import '../../../../core/utils/currency_formatter.dart';
+import '../../domain/entities/currency.dart';
 
 class GroupDetailPage extends ConsumerStatefulWidget {
   final String groupId;
@@ -165,10 +167,10 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      _ExpensesTab(groupId: widget.groupId),
-                      _MembersTab(groupId: widget.groupId),
-                      _AccountsTab(groupId: widget.groupId),
-                      _StatisticsTab(groupId: widget.groupId),
+                      _ExpensesTab(groupId: widget.groupId, currency: group.currency),
+                      _MembersTab(groupId: widget.groupId, currency: group.currency),
+                      _AccountsTab(groupId: widget.groupId, currency: group.currency),
+                      _StatisticsTab(groupId: widget.groupId, currency: group.currency),
                     ],
                   ),
                 ),
@@ -214,11 +216,11 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
     if (!mounted) return;
 
     if (balance < -_balanceTolerance) {
-      final amount = balance.abs().toStringAsFixed(2);
+      final amount = CurrencyFormatter.formatAmount(balance.abs(), group.currency);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'No puedes salir: aún debes €$amount en este grupo. Liquida tus deudas primero.',
+            'No puedes salir: aún debes $amount en este grupo. Liquida tus deudas primero.',
           ),
           backgroundColor: Colors.orange,
           duration: const Duration(seconds: 4),
@@ -807,8 +809,9 @@ $_storeUrl
 
 class _ExpensesTab extends ConsumerWidget {
   final String groupId;
+  final Currency currency;
 
-  const _ExpensesTab({required this.groupId});
+  const _ExpensesTab({required this.groupId, required this.currency});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -911,7 +914,7 @@ class _ExpensesTab extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '${expense.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
+                                      CurrencyFormatter.formatAmount(expense.amount, currency),
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
@@ -1056,7 +1059,7 @@ class _ExpensesTab extends ConsumerWidget {
                       leading: Icon(expense.category.icon),
                       title: Text(expense.description),
                       subtitle: Text(
-                        '${expense.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
+                        CurrencyFormatter.formatAmount(expense.amount, currency),
                       ),
                       trailing: Text(
                         '${expense.date.day}/${expense.date.month}/${expense.date.year}',
@@ -1177,8 +1180,9 @@ class _ExpensesTab extends ConsumerWidget {
 
 class _MembersTab extends ConsumerWidget {
   final String groupId;
+  final Currency currency;
 
-  const _MembersTab({required this.groupId});
+  const _MembersTab({required this.groupId, required this.currency});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1454,11 +1458,7 @@ class _MembersTab extends ConsumerWidget {
                               ],
                             ),
                             trailing: Text(
-                              isPositive
-                                  ? '+${memberBalance.toStringAsFixed(2).replaceAll('.', ',')} €'
-                                  : isNegative
-                                      ? '-${(-memberBalance).toStringAsFixed(2).replaceAll('.', ',')} €'
-                                      : '0,00 €',
+                              CurrencyFormatter.formatAmountWithSign(memberBalance, currency),
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -2011,8 +2011,9 @@ class _GroupBalanceHeader extends ConsumerWidget {
 
 class _AccountsTab extends ConsumerStatefulWidget {
   final String groupId;
+  final Currency currency;
 
-  const _AccountsTab({required this.groupId});
+  const _AccountsTab({required this.groupId, required this.currency});
 
   @override
   ConsumerState<_AccountsTab> createState() => _AccountsTabState();
@@ -2114,7 +2115,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                       ),
                       title: Text('$fromName debe a $toName'),
                       subtitle: Text(
-                        '${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
+                        CurrencyFormatter.formatAmount(debt.amount, group.currency),
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -2177,7 +2178,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                           'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}',
                         ),
                         subtitle: Text(
-                          '${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
+                          CurrencyFormatter.formatAmount(debt.amount, group.currency),
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -2237,12 +2238,32 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       return;
     }
 
+    // Obtener el grupo para acceder a su currency
+    final groupAsync = ref.read(groupProvider(groupId));
+    final group = await groupAsync.when(
+      data: (g) => g,
+      loading: () => null,
+      error: (_, __) => null,
+    );
+
+    if (group == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Error al obtener información del grupo'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Liquidar deuda'),
         content: Text(
-          '¿Confirmas que has recibido ${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} € de $fromName?',
+          '¿Confirmas que has recibido ${CurrencyFormatter.formatAmount(debt.amount, group.currency)} de $fromName?',
         ),
         actions: [
           TextButton(
@@ -2324,14 +2345,16 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
 
 class _StatisticsTab extends ConsumerStatefulWidget {
   final String groupId;
+  final Currency currency;
 
-  const _StatisticsTab({required this.groupId});
+  const _StatisticsTab({required this.groupId, required this.currency});
 
   @override
   ConsumerState<_StatisticsTab> createState() => _StatisticsTabState();
 }
 
 class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
+  Currency get currency => widget.currency;
   DateTime _selectedMonth = DateTime.now();
   bool _showAll = false;
 
@@ -2690,7 +2713,7 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '${totalAmount.toStringAsFixed(2).replaceAll('.', ',')} €',
+                          CurrencyFormatter.formatAmount(totalAmount, currency),
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -2806,7 +2829,7 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                       ),
                     ),
                     trailing: Text(
-                      '${categoryEntry.value.toStringAsFixed(2).replaceAll('.', ',')} €',
+                      CurrencyFormatter.formatAmount(categoryEntry.value, currency),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
