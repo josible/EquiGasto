@@ -170,8 +170,8 @@ class _HomePageState extends ConsumerState<HomePage> {
                               );
                             }
                             return IconButton(
-                              icon: const Icon(Icons.person),
-                              onPressed: () => context.push(RouteNames.profile),
+                          icon: const Icon(Icons.person),
+                          onPressed: () => context.push(RouteNames.profile),
                             );
                           },
                         ),

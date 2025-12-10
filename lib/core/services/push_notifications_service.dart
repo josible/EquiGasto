@@ -116,14 +116,14 @@ class PushNotificationsService {
 
   Future<void> _registerToken(String userId) async {
     try {
-      final token = await _messaging.getToken();
+    final token = await _messaging.getToken();
       if (token == null) {
         debugPrint('⚠️ No se pudo obtener el token FCM');
         return;
       }
       debugPrint('✅ Token FCM obtenido: ${token.substring(0, 20)}...');
-      await _saveToken(userId, token);
-      _tokenRefreshSubscription?.cancel();
+    await _saveToken(userId, token);
+    _tokenRefreshSubscription?.cancel();
       _tokenRefreshSubscription = _messaging.onTokenRefresh.listen((newToken) {
         debugPrint('🔄 Token FCM actualizado: ${newToken.substring(0, 20)}...');
         _saveToken(userId, newToken);
@@ -135,11 +135,11 @@ class PushNotificationsService {
 
   Future<void> _saveToken(String userId, String token) async {
     try {
-      final firestore = _ref.read(firebaseFirestoreProvider);
-      await firestore.collection('users').doc(userId).set({
-        'fcmTokens': FieldValue.arrayUnion([token]),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+    final firestore = _ref.read(firebaseFirestoreProvider);
+    await firestore.collection('users').doc(userId).set({
+      'fcmTokens': FieldValue.arrayUnion([token]),
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
       debugPrint('✅ Token FCM guardado para usuario: $userId');
     } catch (e) {
       debugPrint('❌ Error al guardar token FCM: $e');

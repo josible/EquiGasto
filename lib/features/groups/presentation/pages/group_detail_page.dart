@@ -2333,15 +2333,21 @@ class _StatisticsTab extends ConsumerStatefulWidget {
 
 class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
   DateTime _selectedMonth = DateTime.now();
+  bool _showAll = false;
 
   Map<ExpenseCategory, double> _calculateCategoryTotals(List<Expense> expenses) {
     final totals = <ExpenseCategory, double>{};
     
     for (final expense in expenses) {
-      // Filtrar por mes seleccionado
-      if (expense.date.year == _selectedMonth.year &&
-          expense.date.month == _selectedMonth.month) {
+      // Si _showAll es true, no filtrar por mes
+      if (_showAll) {
         totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
+      } else {
+        // Filtrar por mes seleccionado
+        if (expense.date.year == _selectedMonth.year &&
+            expense.date.month == _selectedMonth.month) {
+          totals[expense.category] = (totals[expense.category] ?? 0) + expense.amount;
+        }
       }
     }
     
@@ -2454,6 +2460,7 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
     if (result != null) {
       setState(() {
         _selectedMonth = result;
+        _showAll = false; // Volver al modo de filtrado por mes
       });
     }
   }
@@ -2486,35 +2493,63 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.all(16.0),
               children: [
-                // Selector de mes
+                // Selector de mes y botón Ver todo
                 Card(
                   elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
-                  child: ListTile(
-                    title: Text(
-                      'Mes',
-                      style: TextStyle(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.grey[300]
-                            : Colors.grey[700],
+                  child: Column(
+                    children: [
+                      ListTile(
+                        title: Text(
+                          'Mes',
+                          style: TextStyle(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[300]
+                                : Colors.grey[700],
+                          ),
+                        ),
+                        subtitle: Text(
+                          _showAll 
+                              ? 'Todos los meses'
+                              : DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth),
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.white
+                                : Colors.black87,
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.calendar_today,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white70
+                              : Colors.grey[700],
+                        ),
+                        onTap: _selectMonth,
                       ),
-                    ),
-                    subtitle: Text(
-                      DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth),
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white
-                            : Colors.black87,
+                      Divider(height: 1),
+                      ListTile(
+                        leading: Icon(
+                          _showAll ? Icons.check_circle : Icons.radio_button_unchecked,
+                          color: _showAll 
+                              ? Theme.of(context).primaryColor
+                              : (Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey[400]
+                                  : Colors.grey[600]),
+                        ),
+                        title: Text(
+                          'Ver todo',
+                          style: TextStyle(
+                            fontWeight: _showAll ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                        onTap: () {
+                          setState(() {
+                            _showAll = true;
+                          });
+                        },
                       ),
-                    ),
-                    trailing: Icon(
-                      Icons.calendar_today,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white70
-                          : Colors.grey[700],
-                    ),
-                    onTap: _selectMonth,
+                    ],
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -2534,7 +2569,9 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                         ),
                         const SizedBox(height: 16),
                         Text(
-                          'No hay gastos para ${DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth)}',
+                          _showAll 
+                              ? 'No hay gastos registrados'
+                              : 'No hay gastos para ${DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth)}',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 16,
@@ -2567,35 +2604,63 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(16.0),
             children: [
-              // Selector de mes
+              // Selector de mes y botón Ver todo
               Card(
                 elevation: Theme.of(context).brightness == Brightness.dark ? 4 : 1,
-                child: ListTile(
-                  title: Text(
-                    'Mes',
-                    style: TextStyle(
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[300]
-                          : Colors.grey[700],
+                child: Column(
+                  children: [
+                    ListTile(
+                      title: Text(
+                        'Mes',
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.grey[300]
+                              : Colors.grey[700],
+                        ),
+                      ),
+                      subtitle: Text(
+                        _showAll 
+                            ? 'Todos los meses'
+                            : DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth),
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.white
+                              : Colors.black87,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.calendar_today,
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white70
+                            : Colors.grey[700],
+                      ),
+                      onTap: _selectMonth,
                     ),
-                  ),
-                  subtitle: Text(
-                    DateFormat('MMMM yyyy', 'es_ES').format(_selectedMonth),
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.white
-                          : Colors.black87,
+                    Divider(height: 1),
+                    ListTile(
+                      leading: Icon(
+                        _showAll ? Icons.check_circle : Icons.radio_button_unchecked,
+                        color: _showAll 
+                            ? Theme.of(context).primaryColor
+                            : (Theme.of(context).brightness == Brightness.dark
+                                ? Colors.grey[400]
+                                : Colors.grey[600]),
+                      ),
+                      title: Text(
+                        'Ver todo',
+                        style: TextStyle(
+                          fontWeight: _showAll ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                      onTap: () {
+                        setState(() {
+                          _showAll = true;
+                        });
+                      },
                     ),
-                  ),
-                  trailing: Icon(
-                    Icons.calendar_today,
-                    color: Theme.of(context).brightness == Brightness.dark
-                        ? Colors.white70
-                        : Colors.grey[700],
-                  ),
-                  onTap: _selectMonth,
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -2613,7 +2678,7 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       Text(
-                        'Total del mes',
+                        _showAll ? 'Total' : 'Total del mes',
                         style: TextStyle(
                           fontSize: 14,
                           color: Theme.of(context).brightness == Brightness.dark

@@ -52,19 +52,19 @@ class SettingsPage extends ConsumerWidget {
               final buildNumber = packageInfo.buildNumber;
               
               if (context.mounted) {
-                showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
-                    title: const Text('EquiGasto'),
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('EquiGasto'),
                     content: Text('Versión $version+$buildNumber\n\nApp para reparto de gastos.'),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(),
-                        child: const Text('Cerrar'),
-                      ),
-                    ],
-                  ),
-                );
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('Cerrar'),
+                    ),
+                  ],
+                ),
+              );
               }
             },
           ),
