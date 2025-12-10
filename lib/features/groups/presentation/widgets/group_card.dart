@@ -51,10 +51,10 @@ class GroupCard extends ConsumerWidget {
               children: [
                 Text(
                   isPositive 
-                      ? '+€${balance.toStringAsFixed(2).replaceAll('.', ',')}'
+                      ? '+${balance.toStringAsFixed(2).replaceAll('.', ',')} €'
                       : isNegative
-                          ? '-€${(-balance).toStringAsFixed(2).replaceAll('.', ',')}'
-                          : '€0,00',
+                          ? '-${(-balance).toStringAsFixed(2).replaceAll('.', ',')} €'
+                          : '0,00 €',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,

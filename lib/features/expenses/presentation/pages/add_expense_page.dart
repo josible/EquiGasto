@@ -398,7 +398,7 @@ class _AddExpensePageState extends ConsumerState<AddExpensePage> {
                     ],
                     decoration: const InputDecoration(
                       labelText: 'Importe',
-                      prefixText: '€ ',
+                      suffixText: '€',
                       hintText: '0,00',
                     ),
                     validator: (value) {

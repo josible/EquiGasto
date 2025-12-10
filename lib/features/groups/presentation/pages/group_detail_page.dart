@@ -911,7 +911,7 @@ class _ExpensesTab extends ConsumerWidget {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                                      '${expense.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
                                     ),
                                     const SizedBox(height: 4),
                                     Row(
@@ -1056,7 +1056,7 @@ class _ExpensesTab extends ConsumerWidget {
                       leading: Icon(expense.category.icon),
                       title: Text(expense.description),
                       subtitle: Text(
-                        '€${expense.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                        '${expense.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
                       ),
                       trailing: Text(
                         '${expense.date.day}/${expense.date.month}/${expense.date.year}',
@@ -1455,10 +1455,10 @@ class _MembersTab extends ConsumerWidget {
                             ),
                             trailing: Text(
                               isPositive
-                                  ? '+€${memberBalance.toStringAsFixed(2).replaceAll('.', ',')}'
+                                  ? '+${memberBalance.toStringAsFixed(2).replaceAll('.', ',')} €'
                                   : isNegative
-                                      ? '-€${(-memberBalance).toStringAsFixed(2).replaceAll('.', ',')}'
-                                      : '€0,00',
+                                      ? '-${(-memberBalance).toStringAsFixed(2).replaceAll('.', ',')} €'
+                                      : '0,00 €',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.bold,
@@ -2114,7 +2114,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                       ),
                       title: Text('$fromName debe a $toName'),
                       subtitle: Text(
-                        '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                        '${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -2177,7 +2177,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
                           'Usuario ${debt.fromUserId.substring(0, 8)} debe a Usuario ${debt.toUserId.substring(0, 8)}',
                         ),
                         subtitle: Text(
-                          '€${debt.amount.toStringAsFixed(2).replaceAll('.', ',')}',
+                          '${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} €',
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -2242,7 +2242,7 @@ class _AccountsTabState extends ConsumerState<_AccountsTab> {
       builder: (context) => AlertDialog(
         title: const Text('Liquidar deuda'),
         content: Text(
-          '¿Confirmas que has recibido €${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} de $fromName?',
+          '¿Confirmas que has recibido ${debt.amount.toStringAsFixed(2).replaceAll('.', ',')} € de $fromName?',
         ),
         actions: [
           TextButton(
@@ -2625,7 +2625,7 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                       FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Text(
-                          '€${totalAmount.toStringAsFixed(2).replaceAll('.', ',')}',
+                          '${totalAmount.toStringAsFixed(2).replaceAll('.', ',')} €',
                           style: TextStyle(
                             fontSize: 32,
                             fontWeight: FontWeight.bold,
@@ -2741,7 +2741,7 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
                       ),
                     ),
                     trailing: Text(
-                      '€${categoryEntry.value.toStringAsFixed(2).replaceAll('.', ',')}',
+                      '${categoryEntry.value.toStringAsFixed(2).replaceAll('.', ',')} €',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
