@@ -2350,64 +2350,110 @@ class _StatisticsTabState extends ConsumerState<_StatisticsTab> {
 
   Future<void> _selectMonth() async {
     final now = DateTime.now();
-    final months = <DateTime>[];
+    int selectedYear = _selectedMonth.year;
+    int selectedMonth = _selectedMonth.month;
     
-    // Generar los últimos 12 meses
-    for (int i = 0; i < 12; i++) {
-      final date = DateTime(now.year, now.month - i, 1);
-      months.add(date);
-    }
+    // Generar lista de años (desde 2020 hasta el año actual)
+    final years = List.generate(now.year - 2019, (index) => now.year - index);
     
-    final selectedDate = await showDialog<DateTime>(
+    // Lista de meses
+    final months = [
+      {'value': 1, 'name': 'Enero'},
+      {'value': 2, 'name': 'Febrero'},
+      {'value': 3, 'name': 'Marzo'},
+      {'value': 4, 'name': 'Abril'},
+      {'value': 5, 'name': 'Mayo'},
+      {'value': 6, 'name': 'Junio'},
+      {'value': 7, 'name': 'Julio'},
+      {'value': 8, 'name': 'Agosto'},
+      {'value': 9, 'name': 'Septiembre'},
+      {'value': 10, 'name': 'Octubre'},
+      {'value': 11, 'name': 'Noviembre'},
+      {'value': 12, 'name': 'Diciembre'},
+    ];
+    
+    final result = await showDialog<DateTime>(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Seleccionar mes'),
-          content: SizedBox(
-            width: double.maxFinite,
-            height: 400,
-            child: ListView.builder(
-              itemCount: months.length,
-              itemBuilder: (context, index) {
-                final monthDate = months[index];
-                final isSelected = monthDate.year == _selectedMonth.year &&
-                    monthDate.month == _selectedMonth.month;
-                
-                // Formatear el mes con nombre descriptivo
-                String monthLabel;
-                if (index == 0) {
-                  monthLabel = 'Este mes';
-                } else if (index == 1) {
-                  monthLabel = 'Mes pasado';
-                } else {
-                  monthLabel = 'Hace ${index} meses';
-                }
-                
-                return ListTile(
-                  title: Text(monthLabel),
-                  subtitle: Text(
-                    DateFormat('MMMM yyyy', 'es_ES').format(monthDate),
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Theme.of(context).brightness == Brightness.dark
-                          ? Colors.grey[400]
-                          : Colors.grey[600],
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Seleccionar mes y año'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Selector de año
+                    DropdownButtonFormField<int>(
+                      value: selectedYear,
+                      decoration: const InputDecoration(
+                        labelText: 'Año',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: years.map((year) {
+                        return DropdownMenuItem<int>(
+                          value: year,
+                          child: Text(year.toString()),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() {
+                            selectedYear = value;
+                          });
+                        }
+                      },
                     ),
-                  ),
-                  selected: isSelected,
-                  selectedTileColor: Theme.of(context).primaryColor.withOpacity(0.1),
-                  onTap: () => Navigator.pop(context, monthDate),
-                );
-              },
-            ),
-          ),
+                    const SizedBox(height: 16),
+                    // Selector de mes
+                    DropdownButtonFormField<int>(
+                      value: selectedMonth,
+                      decoration: const InputDecoration(
+                        labelText: 'Mes',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: months.map((month) {
+                        return DropdownMenuItem<int>(
+                          value: month['value'] as int,
+                          child: Text(month['name'] as String),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setDialogState(() {
+                            selectedMonth = value;
+                          });
+                        }
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancelar'),
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(
+                      context,
+                      DateTime(selectedYear, selectedMonth, 1),
+                    );
+                  },
+                  child: const Text('Aceptar'),
+                ),
+              ],
+            );
+          },
         );
       },
     );
     
-    if (selectedDate != null) {
+    if (result != null) {
       setState(() {
-        _selectedMonth = selectedDate;
+        _selectedMonth = result;
       });
     }
   }
