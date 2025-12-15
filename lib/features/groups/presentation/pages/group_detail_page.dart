@@ -246,7 +246,10 @@ class _GroupDetailPageState extends ConsumerState<GroupDetailPage>
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Eliminar'),
           ),
@@ -876,117 +879,127 @@ class _ExpensesTab extends ConsumerWidget {
                               : null;
 
                       return Card(
-                        child: IntrinsicHeight(
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(right: 12, left: 16),
-                                child: Stack(
-                                  children: [
-                                    Icon(expense.category.icon),
-                                    if (dotColor != null)
-                                      Positioned(
-                                        right: 0,
-                                        top: 0,
-                                        child: Container(
-                                          width: 10,
-                                          height: 10,
-                                          decoration: BoxDecoration(
-                                            color: dotColor,
-                                            shape: BoxShape.circle,
+                        child: InkWell(
+                          onTap: () {
+                            _showExpenseDetails(
+                              context,
+                              expense,
+                              membersMap,
+                              currency,
+                            );
+                          },
+                          child: IntrinsicHeight(
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 12, left: 16),
+                                  child: Stack(
+                                    children: [
+                                      Icon(expense.category.icon),
+                                      if (dotColor != null)
+                                        Positioned(
+                                          right: 0,
+                                          top: 0,
+                                          child: Container(
+                                            width: 10,
+                                            height: 10,
+                                            decoration: BoxDecoration(
+                                              color: dotColor,
+                                              shape: BoxShape.circle,
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      expense.description,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      CurrencyFormatter.formatAmount(expense.amount, currency),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.person,
-                                          size: 14,
-                                          color: Colors.grey,
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        expense.description,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Pagado por: $paidByName',
-                                          style: const TextStyle(
-                                            fontSize: 12,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        CurrencyFormatter.formatAmount(expense.amount, currency),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        children: [
+                                          const Icon(
+                                            Icons.person,
+                                            size: 14,
                                             color: Colors.grey,
                                           ),
-                                        ),
-                                      ],
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Pagado por: $paidByName',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      '${expense.date.day}/${expense.date.month}/${expense.date.year}',
+                                      style: const TextStyle(fontSize: 12),
                                     ),
+                                    if (canManageExpense)
+                                      PopupMenuButton<String>(
+                                        icon:
+                                            const Icon(Icons.more_vert, size: 20),
+                                        onSelected: (value) {
+                                          if (value == 'edit') {
+                                            _navigateToEditExpense(
+                                              context,
+                                              expense,
+                                            );
+                                          } else if (value == 'delete') {
+                                            _confirmDeleteExpense(
+                                              context,
+                                              ref,
+                                              expense,
+                                            );
+                                          }
+                                        },
+                                        itemBuilder: (context) => const [
+                                          PopupMenuItem(
+                                            value: 'edit',
+                                            child: ListTile(
+                                              leading: Icon(Icons.edit),
+                                              title: Text('Editar'),
+                                            ),
+                                          ),
+                                          PopupMenuItem(
+                                            value: 'delete',
+                                            child: ListTile(
+                                              leading: Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.red,
+                                              ),
+                                              title: Text('Eliminar'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                   ],
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    '${expense.date.day}/${expense.date.month}/${expense.date.year}',
-                                    style: const TextStyle(fontSize: 12),
-                                  ),
-                                  if (canManageExpense)
-                                    PopupMenuButton<String>(
-                                      icon:
-                                          const Icon(Icons.more_vert, size: 20),
-                                      onSelected: (value) {
-                                        if (value == 'edit') {
-                                          _navigateToEditExpense(
-                                            context,
-                                            expense,
-                                          );
-                                        } else if (value == 'delete') {
-                                          _confirmDeleteExpense(
-                                            context,
-                                            ref,
-                                            expense,
-                                          );
-                                        }
-                                      },
-                                      itemBuilder: (context) => const [
-                                        PopupMenuItem(
-                                          value: 'edit',
-                                          child: ListTile(
-                                            leading: Icon(Icons.edit),
-                                            title: Text('Editar'),
-                                          ),
-                                        ),
-                                        PopupMenuItem(
-                                          value: 'delete',
-                                          child: ListTile(
-                                            leading: Icon(
-                                              Icons.delete_outline,
-                                              color: Colors.red,
-                                            ),
-                                            title: Text('Eliminar'),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                       );
@@ -1139,7 +1152,10 @@ class _ExpensesTab extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(dialogContext).pop(true),
             child: const Text('Eliminar'),
           ),
@@ -1174,6 +1190,110 @@ class _ExpensesTab extends ConsumerWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showExpenseDetails(
+    BuildContext context,
+    Expense expense,
+    Map<String, User> membersMap,
+    Currency currency,
+  ) {
+    final paidByUser = membersMap[expense.paidBy];
+    final paidByName = paidByUser?.name ??
+        'Usuario ${expense.paidBy.substring(0, 8)}';
+    final splitCount = expense.splitAmounts.length;
+
+    showDialog(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(expense.description),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Total: ${CurrencyFormatter.formatAmount(expense.amount, currency)}',
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(Icons.person, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Pagado por: $paidByName',
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  const Icon(Icons.group, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Dividido entre $splitCount ${splitCount == 1 ? 'persona' : 'personas'}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              const Divider(),
+              const SizedBox(height: 8),
+              const Text(
+                'Participantes:',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...expense.splitAmounts.entries.map((entry) {
+                final userId = entry.key;
+                final amount = entry.value;
+                final user = membersMap[userId];
+                final userName = user?.name ??
+                    'Usuario ${userId.substring(0, 8)}';
+                
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          userName,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      ),
+                      Text(
+                        CurrencyFormatter.formatAmount(amount, currency),
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
     );
   }
 }
