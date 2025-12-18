@@ -168,9 +168,38 @@ void _handleDeepLink(Uri uri) {
     } else {
       debugPrint('🔗 ERROR: Path no comienza con /join/');
     }
+  } 
+  // Manejar formato HTTPS: https://carajillolabs.com/equigasto/join/<code>
+  else if ((uri.scheme == 'https' || uri.scheme == 'http') && 
+           (uri.host == 'carajillolabs.com' || uri.host == 'www.carajillolabs.com')) {
+    final path = uri.path;
+    debugPrint('🔗 Path procesado: $path');
+    if (path.startsWith('/equigasto/join/')) {
+      final code = path.substring('/equigasto/join/'.length);
+      debugPrint('🔗 Código extraído: $code');
+      if (code.isNotEmpty) {
+        // Navegar a la ruta de unión
+        debugPrint('🔗 Navegando a: /join/$code');
+        AppRouter.router.go('/join/$code');
+      } else {
+        debugPrint('🔗 ERROR: Código vacío');
+      }
+    } else if (path.startsWith('/join/')) {
+      // Mantener compatibilidad con formato anterior por si acaso
+      final code = path.substring('/join/'.length);
+      debugPrint('🔗 Código extraído (formato anterior): $code');
+      if (code.isNotEmpty) {
+        debugPrint('🔗 Navegando a: /join/$code');
+        AppRouter.router.go('/join/$code');
+      } else {
+        debugPrint('🔗 ERROR: Código vacío');
+      }
+    } else {
+      debugPrint('🔗 ERROR: Path no comienza con /equigasto/join/ o /join/');
+    }
   } else {
     debugPrint(
-        '🔗 ERROR: Scheme u host no coinciden. Esperado: equigasto://app');
+        '🔗 ERROR: Scheme u host no coinciden. Esperado: equigasto://app o https://carajillolabs.com');
   }
 }
 

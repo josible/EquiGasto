@@ -492,7 +492,7 @@ class _ShareGroupDialog extends StatelessWidget {
 
   static const String _storeUrl =
       'https://play.google.com/store/apps/details?id=com.sire.equigasto';
-  static const String _webBaseUrl = 'https://sireprojects.netlify.app';
+  static const String _webBaseUrl = 'https://carajillolabs.com';
 
   const _ShareGroupDialog({
     required this.groupName,
@@ -500,7 +500,7 @@ class _ShareGroupDialog extends StatelessWidget {
     required this.inviterName,
   });
 
-  String get _joinUrl => '$_webBaseUrl/join/$code';
+  String get _joinUrl => '$_webBaseUrl/equigasto/join/$code';
 
   String get _shareMessage => '''
 ¡Hola! $inviterName te ha invitado al grupo "$groupName" en EquiGasto.
